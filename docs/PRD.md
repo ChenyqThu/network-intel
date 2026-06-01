@@ -44,7 +44,10 @@
 | source | enum | unifi_community / unifi_product / unifi_store / blog / reddit / youtube / rss / x |
 | date | date | 信号产生日期 |
 | title | string | 标题 |
-| url | string | 原文链接 |
+| url | string | 原文完整链接（必填，用于出处行跳转） |
+| source_domain | string | 来源域名（如 community.ui.com），出处行显示用 |
+| source_tier | enum | official（ui.com 一手）/ community（reddit/yt 二手），可信度分层 |
+| cite_id | int | 报告内引用编号（render 时分配，对应末尾参考列表） |
 | summary | string | 一句话摘要（LLM 生成） |
 | category | enum | industry（行业）/ competitor（竞品）/ sentiment（舆情）/ new_product（新品）/ pricing（定价） |
 | signal_strength | enum | high / medium / low |
@@ -202,9 +205,12 @@
 - 分类标签（竞品/舆情/新品/定价/行业）
 - **omada_impact 徽章**（threat 红 / opportunity 绿 / neutral 灰）+ impact_note 提示
 - 热度指标（👍 赞 / 💬 评论 / ↑ score）
-- 日期 + 原文链接
+- **【强制】显式出处行（Citation Line）** — 见 §7.8，这是策展产品的灵魂
 
-> 设计重点：omada_impact 徽章是本产品的灵魂，要醒目但不喧宾夺主。
+> ⚠️ **设计红线（v1 评审踩坑修正）**：每张卡片**必须有一条独立、醒目、可点击的「出处行」**，明确展示 `来源域名 · 日期 · 查看原文↗`。
+> **不要**把原文链接做成标题旁一个易忽略的小 ↗ 图标——那不是策展，是信息聚合。策展报告的核心价值是「每条结论可一键溯源验证」，出处必须是卡片上的一等视觉元素，不能藏。
+>
+> 同时 omada_impact 徽章是本产品的判断价值，要醒目但不喧宾夺主。出处行（可信度）+ impact 徽章（判断力）= 策展的两个支柱，缺一不可。
 
 ### 组件 B：威胁/机会徽章（Impact Badge）
 三态语义徽章：🔴 Threat / 🟢 Opportunity / ⚪ Neutral，hover/点击展开 impact_note。
@@ -229,29 +235,103 @@
 - 暗色/亮色切换
 - 响应式：桌面优先（内部团队主要在电脑看），但移动端可读
 
-## 7.6 内容样例（供设计填充真实感）
+## 7.6 内容样例（真实数据，2026-06-01 从 Supabase 拉取，链接均已验证可跳转）
 
-**情报卡片样例 1（竞品新品）：**
-- 来源：UniFi Store
-- 标题：UniFi Express 7 上线
-- 摘要：$199 的 Wi-Fi 7 一体网关，定位家庭/小微办公
+> ⚠️ 设计师请用**这些真实数据 + 真实链接**做设计，不要用占位 lorem/假链接。每条都标了完整出处行，这才是设计要还原的「策展范本」。完整带引用的样例报告见 `docs/SAMPLE_REPORT.md`。
+
+**情报卡片样例 1（竞品新品 / 固件发布）：**
+- 来源徽章：🟦 UniFi 官方 · Release
+- 标题：UniFi OS - Express 7　v5.1.15　`RC`
+- 摘要：UniFi Express 7 发布 5.1.15 RC 版，UniFi OS 核心栈更新
 - 标签：新品 / 竞品
-- Impact：🔴 Threat — 直接对标 Omada 入门网关，价格更激进
-- 热度：store 新上架
+- 热度：👁 376 浏览 · 💬 3
+- Impact：🔴 Threat — Express 7 是 UniFi 主打的一体化入门网关，固件迭代节奏直接对标 Omada 入门线
+- **出处行**：`🔗 community.ui.com · 2026-06-01 · 查看原文 ↗`
+  → https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/8464
 
-**情报卡片样例 2（用户舆情）：**
-- 来源：Reddit r/Ubiquiti
-- 标题：「从 UniFi 换到 Omada 三个月体验」
-- 摘要：用户吐槽 UniFi 订阅涨价，转 Omada 后满意但抱怨 App 体验
+**情报卡片样例 2（官方博客 / 新品）：**
+- 来源徽章：🟦 UniFi 官方 · Blog
+- 标题：Introducing UniFi 5G Backup
+- 摘要：UniFi 推出 5G 备份方案，PoE 即插，为网关提供 5G failover
+- 标签：新品 / 竞品
+- Impact：🔴 Threat — 5G 备份补齐了 UniFi 在 WAN 冗余上的短板，Omada 网关线需关注
+- **出处行**：`🔗 blog.ui.com · 2026-05-21 · 查看原文 ↗`
+  → https://blog.ui.com/article/introducing-unifi-5g-backup
+
+**情报卡片样例 3（用户舆情 / 痛点）：**
+- 来源徽章：🟩 社区 · UniFi Community
+- 标题：U5G - manual carrier select / override badly needed!
+- 摘要：用户强烈要求 UniFi 5G 设备增加手动运营商选择，吐槽自动选网不可控
 - 标签：舆情
-- Impact：🟢 Opportunity — UniFi 订阅涨价是我方拉新窗口，但需补 App 体验
-- 热度：👍 382 · 💬 147
+- 热度：👁 2
+- Impact：🟢 Opportunity — UniFi 5G 选网体验是痛点，Omada 若做蜂窝备份可作为差异化卖点
+- **出处行**：`🔗 community.ui.com · 2026-06-01 · 查看原文 ↗`
+  → https://community.ui.com/questions/U5G-manual-carrier-select-override-badly-needed/eb165625-81e2-46b9-8dac-01d7e8339e99
 
 ## 7.7 设计交付物期望
 - 完整页面高保真设计（首页 / 日报 / 周报 / 归档）
-- 核心组件库（情报卡片各状态 / 徽章 / 看板组件）
+- 核心组件库（情报卡片各状态 / 徽章 / **出处行** / 看板组件 / 引用列表）
 - 亮色 + 暗色两套
 - 可直接交付前端实现的规范（间距/字号/色值）
+
+## 7.8 引用与溯源规范（Citation & Sourcing）— 策展产品的灵魂
+
+> 这是 v1 设计评审最大的缺失项。一份策展报告与普通信息聚合的本质区别 = **每条结论可溯源、可一键跳转验证**。本节是强制规范。
+
+### 7.8.1 卡片出处行（Citation Line）— 强制
+每张情报卡片**底部必须有一条独立的出处行**，三段式结构：
+
+```
+🔗 {来源域名}  ·  {日期}  ·  查看原文 ↗
+   community.ui.com   2026-06-01    （整行或「查看原文」可点击，新窗口打开）
+```
+
+- **来源域名**显式展示（community.ui.com / blog.ui.com / reddit.com / youtube.com）——让读者一眼判断「一手官方」还是「二手社区」的可信度层级
+- **日期**显式展示
+- **链接可点击**，新窗口打开原文
+- 视觉上独立成行，**不允许**只做成标题旁的小图标
+
+### 7.8.2 来源可信度分层（视觉权重）
+出处行的来源域名应有视觉分层，呼应来源徽章：
+- **一手官方**（ui.com 系：community/blog/store/release）→ 较高视觉权重（如蓝色实心徽章 + 「官方」标识）
+- **二手社区**（reddit/youtube/x）→ 中性视觉权重
+
+### 7.8.3 合成结论的溯源（导语/趋势判断）— 强制
+LLM 生成的综合判断（如日报导语「今日两记硬信号，一记威胁一记机会」、周报趋势结论）**必须挂来源编号**：
+
+```
+今日两记硬信号：UniFi OS 全线升 5.1.15 RC[1]，5G Backup 正式发布[2]——
+一记节奏施压、一记补齐 WAN 冗余短板。
+```
+
+- 正文用上标 `[1] [2]` 编号，**点击可跳转**到对应卡片或参考列表项
+- 这是「策展判断 vs AI 无源断言」的分水岭——任何合成结论都不能是无源的
+
+### 7.8.4 报告末尾参考列表（References）— 强制
+每份报告（日报/周报）末尾**统一汇总一个参考文献列表**，编号与正文上标对应：
+
+```
+参考来源
+[1] UniFi OS - Express 7 v5.1.15 (RC) — community.ui.com — 2026-06-01
+    https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/8464
+[2] Introducing UniFi 5G Backup — blog.ui.com — 2026-05-21
+    https://blog.ui.com/article/introducing-unifi-5g-backup
+[3] U5G - manual carrier select badly needed — community.ui.com — 2026-06-01
+    https://community.ui.com/questions/U5G-manual-carrier-select-override-badly-needed/eb165625-...
+```
+
+- 便于整体核查、导出、转发
+- 设计上需要一个清晰的「参考列表」组件
+
+### 7.8.5 数据契约要求（给工程）
+为支撑上述设计，每条 Intel Item 必须携带：
+- `url`（原文完整链接，必填，可点击）
+- `source_domain`（如 community.ui.com，用于出处行展示）
+- `source_tier`（official / community，用于可信度分层）
+- `cite_id`（报告内引用编号，render 时分配）
+- `date`（显示日期）
+
+> 这些字段会写进 §2.1 Intel Item schema（见下方更新）。
 
 ---
 
