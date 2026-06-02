@@ -76,11 +76,13 @@ def build(
     classified = classify.classify(pool)
     # Dynamic reports get a date-derived id (daily: YYYY-MM-DD-daily, weekly:
     # YYYY-Www-weekly); offline keeps the seed id so the fixture round-trip holds.
-    report_id = _dynamic_report_id(report_type, as_of or date.today()) if use_dynamic else None
+    _as_of = as_of or date.today()
+    report_id = _dynamic_report_id(report_type, _as_of) if use_dynamic else None
     report = curate.curate(
         classified,
         report_type=report_type,
         report_id=report_id,
+        report_date=_as_of.isoformat() if use_dynamic else None,
         reasons=reasons if use_dynamic else None,
     )
 

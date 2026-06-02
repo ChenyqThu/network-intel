@@ -56,13 +56,6 @@ def test_report_detail_full(client):
     assert len(doc["items"]) == 13
 
 
-def test_report_detail_metadata_only_404(client):
-    # In the archive index but no full report.json -> honest 404 with a clear message.
-    r = client.get("/api/reports/2026-05-30-daily")
-    assert r.status_code == 404
-    assert "metadata-only" in r.json()["detail"]
-
-
 def test_report_detail_unknown_404(client):
     r = client.get("/api/reports/does-not-exist")
     assert r.status_code == 404
@@ -154,8 +147,7 @@ def test_archive_reflects_newly_published(client):
 
     reports = client.get("/api/reports").json()["reports"]
     ids = {x["id"] for x in reports}
-    assert "2020-01-01-daily" in ids          # newly published -> appears live
-    assert "2026-05-30-daily" in ids          # metadata-only history still present
+    assert "2020-01-01-daily" in ids          # newly published -> appears live (DB-derived)
 
     entry = next(x for x in reports if x["id"] == "2020-01-01-daily")
     for k in ("id", "type", "date", "title", "excerpt", "signals", "threats", "opps", "themes"):

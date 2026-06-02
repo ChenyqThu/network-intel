@@ -81,6 +81,7 @@ def curate(
     report_type: str,
     report_id: str | None = None,
     generated_at: str | None = None,
+    report_date: str | None = None,
     reasons: dict[str, str] | None = None,
 ) -> Report:
     """Assemble a validated :class:`Report` from classified items.
@@ -111,7 +112,8 @@ def curate(
         # emitted item is real + schema-complete.
         doc = _reconcile_items(doc, items)
         doc = _normalize_llm_doc(
-            doc, report_type=report_type, report_id=rid, generated_at=generated_at
+            doc, report_type=report_type, report_id=rid,
+            generated_at=generated_at, report_date=report_date,
         )
         # The section taxonomy is fixed per cadence — the engine assembles it
         # from each item's subject/source, not the LLM (which drifts).
@@ -292,13 +294,14 @@ def _reconcile_items(doc: dict[str, Any], input_items: list[dict[str, Any]]) -> 
     ``unknown`` impact if the LLM omitted them. Result: every item is real and
     schema-complete.
     """
-    by_url = {it.get("url"): it for it in input_items if it.get("url")}
+    # The item LIST is the real selected pool (the engine decided it via select);
+    # the LLM only supplies per-item JUDGMENTS, matched by url. This way the
+    # report is never empty even if the LLM omits/garbles its items array.
+    llm_by_url = {li.get("url"): li for li in doc.get("items", []) if isinstance(li, dict) and li.get("url")}
     out: list[dict[str, Any]] = []
-    for idx, li in enumerate(doc.get("items", [])):
-        base = by_url.get(li.get("url"))
-        if base is None:
-            continue
+    for idx, base in enumerate(input_items):
         merged = dict(base)
+        li = llm_by_url.get(base.get("url"), {})
         for k in _JUDGMENT_KEYS:
             v = li.get(k)
             if v not in (None, ""):
@@ -312,7 +315,8 @@ def _reconcile_items(doc: dict[str, Any], input_items: list[dict[str, Any]]) -> 
 
 
 def _normalize_llm_doc(
-    doc: dict[str, Any], *, report_type: str, report_id: str, generated_at: str | None
+    doc: dict[str, Any], *, report_type: str, report_id: str,
+    generated_at: str | None, report_date: str | None = None,
 ) -> dict[str, Any]:
     """Fill the structural/identity fields the engine owns, so a valid report
     never depends on the LLM remembering to emit them. The LLM produces the
@@ -322,8 +326,7 @@ def _normalize_llm_doc(
     doc["report_id"] = report_id
     doc["type"] = report_type
     doc["generated_at"] = doc.get("generated_at") or generated_at or default_generated_at()
-    if not doc.get("date"):
-        doc["date"] = date.today().isoformat()
+    doc["date"] = report_date or doc.get("date") or date.today().isoformat()
     doc.setdefault("date_range", doc["date"])
     doc.setdefault("items", [])
     if not isinstance(doc.get("lead"), dict):

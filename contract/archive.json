@@ -1,13 +1,3 @@
 {
-  "reports": [
-    { "id": "2026-06-01-daily", "type": "daily", "date": "2026-06-01", "title": "UniFi 集中放量：Express 7 RC + 5G Backup；自家 EAP610 升级回滚", "excerpt": "自家两记产品输入，竞品两记节奏施压。Omada 自身 2 · 竞品 2 · 竞品舆情 3 · 行业 1。", "signals": 8, "threats": 2, "opps": 2, "themes": ["omada_self", "competitor", "sentiment", "industry"] },
-    { "id": "2026-W22-weekly", "type": "weekly", "date": "2026-05-31", "title": "第 22 周深度：低端围堵 + 高端降价，价格战全面铺开", "excerpt": "Express 7 / Cloud Gateway Fiber + U7 Pro Max 降价；自家固件稳定性需补。含市场策略洞察。", "signals": 13, "threats": 3, "opps": 5, "themes": ["omada_self", "competitor", "sentiment", "pricing", "industry"] },
-    { "id": "2026-05-30-daily", "type": "daily", "date": "2026-05-30", "title": "U7 Pro Max 降价 $40 · KOL 横评利好我方", "excerpt": "高端 AP 价格下探；Crosstalk 横评强化本地优先卖点。", "signals": 4, "threats": 1, "opps": 2, "themes": ["pricing", "competitor"] },
-    { "id": "2026-05-29-daily", "type": "daily", "date": "2026-05-29", "title": "6GHz 漫游故障发酵 · 去订阅化趋势", "excerpt": "竞品稳定性口碑受损窗口；r/networking 去订阅讨论。", "signals": 5, "threats": 0, "opps": 3, "themes": ["sentiment", "industry"] },
-    { "id": "2026-05-28-daily", "type": "daily", "date": "2026-05-28", "title": "Cloud Gateway Fiber（10G PON）切入运营商市场", "excerpt": "竞品补 PON 网关短板，我方存在产品缺口。", "signals": 3, "threats": 1, "opps": 0, "themes": ["new_product", "industry"] },
-    { "id": "2026-05-27-daily", "type": "daily", "date": "2026-05-27", "title": "U6+ 多区域缺货 · 渠道替换窗口", "excerpt": "入门 AP 断货超两周，建议备货同价位 EAP。", "signals": 2, "threats": 0, "opps": 1, "themes": ["pricing", "sentiment"] },
-    { "id": "2026-W21-weekly", "type": "weekly", "date": "2026-05-24", "title": "第 21 周深度：订阅涨价余波 + MSP 口碑分化", "excerpt": "UniFi 订阅政策持续发酵；Omada PRO 多租户获自发认可。", "signals": 12, "threats": 2, "opps": 5, "themes": ["sentiment", "competitor", "pricing"] },
-    { "id": "2026-05-23-daily", "type": "daily", "date": "2026-05-23", "title": "今日无重大竞品动态", "excerpt": "仅 1 条行业要闻，无硬信号。", "signals": 1, "threats": 0, "opps": 0, "themes": ["industry"], "empty": true },
-    { "id": "2026-W20-weekly", "type": "weekly", "date": "2026-05-17", "title": "第 20 周深度：Network 10.5 Beta + 防火墙补强", "excerpt": "竞品企业侧能力补齐；社区对 DPI 重构反馈两极。", "signals": 11, "threats": 2, "opps": 3, "themes": ["competitor", "sentiment"] }
-  ]
+  "reports": []
 }
