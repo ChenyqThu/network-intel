@@ -1,0 +1,121 @@
+"""Environment-driven settings for the nintel backend.
+
+All knobs are read from the process environment (optionally loaded from a
+``.env`` file via ``python-dotenv``). Nothing here requires network access or
+secrets to start — the defaults run the system fully offline against the seed
+fixtures, which is exactly what the test-suite and a fresh checkout rely on.
+
+Key flags
+---------
+``NINTEL_CONNECTOR_MODE``  ``fixture`` (default) | ``live``
+    ``live`` readers raise ``NotImplementedError`` here (no upstream creds).
+``NINTEL_LLM_ENABLED``     ``false`` (default) | ``true``
+    When false the classify/curate stages use the deterministic fixture path
+    and never touch the network.
+``NINTEL_REVIEW_MODE``     ``manual`` (default) | ``auto``
+    ``manual`` writes report.json to ``data/pending/`` awaiting human approval;
+    ``auto`` publishes straight to ``data/published/``.
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
+
+try:  # python-dotenv is a hard dependency, but stay import-safe.
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except Exception:  # pragma: no cover - defensive only
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Filesystem anchors
+# ---------------------------------------------------------------------------
+# src/nintel/config.py -> src/nintel -> src -> apps/api
+API_ROOT = Path(__file__).resolve().parents[2]
+# apps/api -> apps -> repo root
+REPO_ROOT = API_ROOT.parents[1]
+CONTRACT_DIR = REPO_ROOT / "contract"
+SCHEMA_PATH = CONTRACT_DIR / "report.schema.json"
+PROMPTS_DIR = API_ROOT / "prompts"
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+@dataclass(frozen=True)
+class Settings:
+    """Immutable, env-resolved settings snapshot."""
+
+    # HTTP server
+    host: str = "0.0.0.0"
+    port: int = 8000
+    cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
+
+    # Storage
+    data_dir: Path = API_ROOT / "data"
+    db_path: Path = API_ROOT / "data" / "nintel.db"
+
+    # Pipeline behaviour
+    connector_mode: str = "fixture"  # fixture | live
+    llm_enabled: bool = False
+    review_mode: str = "manual"  # manual | auto
+
+    # LLM (only used when llm_enabled)
+    anthropic_api_key: str | None = None
+    haiku_model: str = "claude-haiku-4-5-20251001"
+    opus_model: str = "claude-opus-4-8"
+
+    # Contract
+    contract_dir: Path = CONTRACT_DIR
+    schema_path: Path = SCHEMA_PATH
+    prompts_dir: Path = PROMPTS_DIR
+
+    @property
+    def db_url(self) -> str:
+        return f"sqlite:///{self.db_path}"
+
+    @property
+    def pending_dir(self) -> Path:
+        return self.data_dir / "pending"
+
+    @property
+    def published_dir(self) -> Path:
+        return self.data_dir / "published"
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Build a cached :class:`Settings` from the current environment."""
+
+    data_dir = Path(os.getenv("NINTEL_DATA_DIR", str(API_ROOT / "data"))).resolve()
+    db_path = Path(os.getenv("NINTEL_DB_PATH", str(data_dir / "nintel.db"))).resolve()
+
+    cors_raw = os.getenv("NINTEL_CORS_ORIGINS")
+    cors = (
+        tuple(o.strip() for o in cors_raw.split(",") if o.strip())
+        if cors_raw
+        else ("http://localhost:5173", "http://127.0.0.1:5173")
+    )
+
+    return Settings(
+        host=os.getenv("NINTEL_HOST", "0.0.0.0"),
+        port=int(os.getenv("NINTEL_PORT", "8000")),
+        cors_origins=cors,
+        data_dir=data_dir,
+        db_path=db_path,
+        connector_mode=os.getenv("NINTEL_CONNECTOR_MODE", "fixture").strip().lower(),
+        llm_enabled=_env_bool("NINTEL_LLM_ENABLED", False),
+        review_mode=os.getenv("NINTEL_REVIEW_MODE", "manual").strip().lower(),
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+        haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
+        opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),
+    )

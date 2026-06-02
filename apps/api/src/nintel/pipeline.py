@@ -1,0 +1,143 @@
+"""Pipeline orchestration: ingest → classify → curate → trend → render.
+
+CLI::
+
+    python -m nintel.pipeline build --type daily   [--publish]
+    python -m nintel.pipeline build --type weekly  [--publish]
+    python -m nintel.pipeline seed [--reset]
+    python -m nintel.pipeline approve <report_id>
+
+The default (offline) path is fully deterministic and produces a schema-valid
+report content-equivalent to the canonical seed. With ``NINTEL_LLM_ENABLED=true``
+the classify/curate stages route through Anthropic (Haiku + Opus with prompt
+caching); everything else is unchanged.
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from typing import Any
+
+from .config import get_settings
+from .contract import Report, validate_against_schema
+from .engine import classify, curate, ingest, render, trend
+from .store.db import init_db
+
+
+def build(report_type: str, *, persist_items: bool = True) -> Report:
+    """Run the full pipeline and return a validated :class:`Report`.
+
+    Stages:
+      1. ingest   — connectors → normalized, deduped items (→ SQLite)
+      2. classify — Haiku tier (fixture fallback): summary/category/strength
+      3. curate   — Opus tier (fixture fallback): sections/impacts/lead/strategy
+      4. trend    — recompute stats (+ weekly dashboard) from curated items
+    """
+
+    if report_type not in ("daily", "weekly"):
+        raise ValueError(f"--type must be daily|weekly, got {report_type!r}")
+
+    if persist_items:
+        init_db()
+
+    raw_items = ingest.ingest(persist=persist_items)
+    classified = classify.classify(raw_items)
+    report = curate.curate(classified, report_type=report_type)
+
+    seed_dashboard = report.dashboard if report.type == "weekly" else None
+    report = trend.apply_trends(report, seed_dashboard=seed_dashboard)
+
+    # Belt-and-suspenders: the produced report must be schema-valid.
+    validate_against_schema(report.dump())
+    return report
+
+
+def build_and_submit(report_type: str) -> dict[str, Any]:
+    """Build a report and route it through the review gate.
+
+    Returns a small summary dict (report_id, path, review_mode).
+    """
+
+    from .review import submit
+
+    report = build(report_type)
+    path = submit(report)
+    return {
+        "report_id": report.report_id,
+        "path": str(path),
+        "review_mode": get_settings().review_mode,
+    }
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+def _cmd_build(args: argparse.Namespace) -> int:
+    if args.publish:
+        # Force-publish regardless of review_mode by writing straight to published.
+        from .review import publish
+
+        report = build(args.type)
+        out = publish(report.report_id, doc=report.dump())
+        print(f"built + published {report.report_id} -> {out}")
+    else:
+        summary = build_and_submit(args.type)
+        print(
+            f"built {summary['report_id']} "
+            f"(review_mode={summary['review_mode']}) -> {summary['path']}"
+        )
+    return 0
+
+
+def _cmd_seed(args: argparse.Namespace) -> int:
+    from .store.seed import seed
+
+    counts = seed(reset=args.reset)
+    print(f"seeded: {counts['reports']} reports, {counts['items']} items")
+    return 0
+
+
+def _cmd_approve(args: argparse.Namespace) -> int:
+    from .review import approve
+
+    out = approve(args.report_id)
+    print(f"approved {args.report_id} -> {out}")
+    return 0
+
+
+def _cmd_render(args: argparse.Namespace) -> int:
+    report = build(args.type, persist_items=False)
+    print(render.render_email(report))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="nintel", description="Network Intel engine CLI")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_build = sub.add_parser("build", help="build a report.json")
+    p_build.add_argument("--type", required=True, choices=["daily", "weekly"])
+    p_build.add_argument(
+        "--publish", action="store_true", help="publish immediately (skip pending)"
+    )
+    p_build.set_defaults(func=_cmd_build)
+
+    p_seed = sub.add_parser("seed", help="seed the DB from contract fixtures")
+    p_seed.add_argument("--reset", action="store_true", help="drop + recreate tables")
+    p_seed.set_defaults(func=_cmd_seed)
+
+    p_appr = sub.add_parser("approve", help="approve a pending report")
+    p_appr.add_argument("report_id")
+    p_appr.set_defaults(func=_cmd_approve)
+
+    p_render = sub.add_parser("render", help="render a report's email HTML to stdout")
+    p_render.add_argument("--type", required=True, choices=["daily", "weekly"])
+    p_render.set_defaults(func=_cmd_render)
+
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI entry
+    sys.exit(main())

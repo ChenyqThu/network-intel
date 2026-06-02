@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtualenv
+.venv/
+
+# Local env
+.env
+
+# SQLite database
+*.db
+data/*.db
+
+# Review queues (keep the dirs, ignore contents)
+data/pending/*
+data/published/*
+!data/pending/.gitkeep
+!data/published/.gitkeep

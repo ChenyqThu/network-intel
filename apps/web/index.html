@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="description" content="Network Intel — 内部竞品 & 舆情情报站。Dossier 编辑体系。" />
+    <title>Network Intel · 内部情报</title>
+
+    <!-- Manrope (pragmatic CDN; --font-sans falls back to system stack if it fails to load) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- No-FOUC: resolve theme + density + primary color before first paint. -->
+    <script>
+      (function () {
+        try {
+          var KEY = 'nintel.tweaks';
+          var t = {};
+          try { t = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+          var theme = t.theme || 'system';
+          var resolved =
+            theme === 'system'
+              ? (window.matchMedia &&
+                 window.matchMedia('(prefers-color-scheme: dark)').matches
+                  ? 'dark'
+                  : 'light')
+              : theme;
+          var r = document.documentElement;
+          r.setAttribute('data-theme', resolved);
+          r.setAttribute('data-density', t.density || 'regular');
+          if (t.primaryColor) r.style.setProperty('--tw-primary', t.primaryColor);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.setAttribute('data-density', 'regular');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
