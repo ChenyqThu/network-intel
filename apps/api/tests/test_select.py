@@ -104,6 +104,39 @@ def test_missing_or_unparseable_date_rejected():
     assert not is_fresh("not-a-date", date(2026, 6, 1), 2)
 
 
+def test_balance_guarantees_omada_self_representation():
+    from nintel.engine.select import _balance
+
+    # 10 high-heat competitor reddit posts + 2 low-heat omada_self posts.
+    scored = []
+    for i in range(10):
+        scored.append(({"subject": "competitor", "source": "reddit", "url": f"c{i}"}, None, 1000.0 - i))
+    scored.append(({"subject": "omada_self", "source": "reddit", "url": "o1"}, None, 5.0))
+    scored.append(({"subject": "omada_self", "source": "youtube", "url": "o2"}, None, 3.0))
+    out = _balance(scored, 12)
+    subjects = [t[0]["subject"] for t in out]
+    # omada_self must appear despite far lower heat (subject round-robin first)
+    assert subjects.count("omada_self") == 2
+    # and it's surfaced early, not buried at the end
+    assert out[0][0]["subject"] == "omada_self"
+
+
+def test_collapse_crossposts_keeps_highest_engagement():
+    from nintel.engine.select import _collapse_crossposts
+
+    items = [
+        {"source": "reddit", "title": "ER707 DNS", "url": "u1", "metrics": {"comments": 2}},
+        {"source": "reddit", "title": "ER707 DNS", "url": "u2", "metrics": {"comments": 9}},
+        {"source": "reddit", "title": "Different post", "url": "u3", "metrics": {"comments": 1}},
+        {"source": "youtube", "title": "ER707 DNS", "url": "u4", "metrics": {"views": 5}},
+    ]
+    out = _collapse_crossposts(items)
+    urls = {it["url"] for it in out}
+    assert "u2" in urls and "u1" not in urls      # cross-post collapsed, higher-heat kept
+    assert "u3" in urls                            # distinct title kept
+    assert "u4" in urls                            # same title, different source kept
+
+
 def test_weekly_window_covers_iso_week():
     # weekly window=7, as_of = Sunday 2026-05-31 -> Mon..Sun (W22) qualify.
     for d in ("2026-05-25", "2026-05-28", "2026-05-31"):

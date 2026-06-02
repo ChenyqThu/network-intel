@@ -83,6 +83,9 @@ class Settings:
     # Source A (sentiment) reads the omada-sentiment-monitor SQLite directly (DB,
     # not Notion). Absolute path to omada_monitor.db.
     sentiment_db_path: str | None = None
+    # Source A backend: "notion" (the fresh canonical store, synced hourly) or
+    # "sqlite" (the local omada_monitor.db, only fresh on local monitor runs).
+    sentiment_backend: str = "notion"
     llm_enabled: bool = False
     review_mode: str = "manual"  # manual | auto
 
@@ -128,6 +131,17 @@ class Settings:
     haiku_model: str = "claude-haiku-4-5-20251001"
     opus_model: str = "claude-opus-4-8"
 
+    # Gemini deep-research connector (source G). Only used when source G runs
+    # live (NINTEL_CONNECTOR_MODE=live + G in NINTEL_LIVE_SOURCES): it grounds a
+    # fixed set of weekly prompts with Google Search and structures the result
+    # into `subject=industry` items. Cost is isolated from the Anthropic budget.
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-pro"  # any grounding-capable model; verify latest
+    # Industry RSS (source C): feeds come from inline NINTEL_RSS_FEEDS and/or a
+    # newline-delimited file (NINTEL_RSS_FEEDS_FILE) so the curated catalog can
+    # live in a committed file instead of one giant env var ('#' lines ignored).
+    rss_feeds_file: str | None = None
+
     # Contract
     contract_dir: Path = CONTRACT_DIR
     schema_path: Path = SCHEMA_PATH
@@ -144,6 +158,11 @@ class Settings:
     @property
     def published_dir(self) -> Path:
         return self.data_dir / "published"
+
+    @property
+    def research_dir(self) -> Path:
+        """Where the Gemini deep-research connector archives grounded memos."""
+        return self.data_dir / "research"
 
 
 @lru_cache(maxsize=1)
@@ -173,6 +192,7 @@ def get_settings() -> Settings:
             if s.strip()
         ),
         sentiment_db_path=os.getenv("NINTEL_SENTIMENT_DB_PATH") or None,
+        sentiment_backend=os.getenv("NINTEL_SENTIMENT_BACKEND", "notion").strip().lower(),
         llm_enabled=_env_bool("NINTEL_LLM_ENABLED", False),
         review_mode=os.getenv("NINTEL_REVIEW_MODE", "manual").strip().lower(),
         resurface_heat_delta=int(os.getenv("NINTEL_RESURFACE_HEAT_DELTA", "50")),
@@ -201,6 +221,9 @@ def get_settings() -> Settings:
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL") or None,
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
         opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),
+        gemini_api_key=os.getenv("NINTEL_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or None,
+        gemini_model=os.getenv("NINTEL_GEMINI_MODEL", "gemini-2.5-pro"),
+        rss_feeds_file=os.getenv("NINTEL_RSS_FEEDS_FILE") or None,
         # Override to A/B a candidate prompt set (e.g. prompts/variants/).
         prompts_dir=Path(os.getenv("NINTEL_PROMPT_DIR", str(PROMPTS_DIR))).resolve(),
     )

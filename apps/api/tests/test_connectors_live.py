@@ -90,6 +90,70 @@ def test_youtube_mapper():
     assert rr.raw["metrics"]["views"] == 278 and rr.raw["sentiment"] == "neg"
 
 
+def _notion_page(props: dict) -> dict:
+    return {"properties": props}
+
+
+def test_notion_reddit_mapper_omada_self():
+    from nintel.connectors.sentiment_monitor import map_notion_reddit
+
+    page = _notion_page({
+        "标题": {"type": "title", "title": [{"plain_text": "ER707 M2 hijacking DNS"}]},
+        "Reddit链接": {"type": "url", "url": "https://www.reddit.com/r/TPLINK/comments/abc/x/"},
+        "发布时间": {"type": "date", "date": {"start": "2026-05-30T10:00:00Z"}},
+        "情感倾向": {"type": "select", "select": {"name": "负面"}},
+        "匹配关键词": {"type": "multi_select", "multi_select": [{"name": "Omada"}, {"name": "TP-Link"}]},
+        "产品型号": {"type": "multi_select", "multi_select": []},
+        "分数": {"type": "number", "number": 15},
+        "评论数": {"type": "number", "number": 3},
+        "相关性得分": {"type": "number", "number": 0.8},
+        "切换意图": {"type": "checkbox", "checkbox": True},
+        "AI摘要": {"type": "rich_text", "rich_text": [{"plain_text": "用户反映 ER707 DNS 问题"}]},
+    })
+    rr = map_notion_reddit(page)
+    assert rr.source == "reddit" and rr.provenance == "A"
+    assert rr.url.endswith("/abc/x/") and rr.published == "2026-05-30"
+    assert rr.raw["subject"] == "omada_self"          # Omada/TP-Link tag -> our product
+    assert rr.raw["omada_impact"] == "needs_fix"      # omada_self + negative
+    assert rr.raw["sentiment"] == "neg" and rr.raw["switch_intent"] is True
+    assert rr.raw["metrics"]["likes"] == 15 and rr.raw["summary"]
+    assert content_hash(rr.source, rr.url, rr.title)
+
+
+def test_notion_reddit_mapper_competitor():
+    from nintel.connectors.sentiment_monitor import map_notion_reddit
+
+    page = _notion_page({
+        "标题": {"type": "title", "title": [{"plain_text": "First Ubiquiti Set Up"}]},
+        "Reddit链接": {"type": "url", "url": "https://www.reddit.com/r/Ubiquiti/comments/def/x/"},
+        "发布时间": {"type": "date", "date": {"start": "2026-06-01T10:00:00Z"}},
+        "情感倾向": {"type": "select", "select": {"name": "中性"}},
+        "匹配关键词": {"type": "multi_select", "multi_select": [{"name": "Competitor"}, {"name": "ubiquiti"}]},
+        "切换意图": {"type": "checkbox", "checkbox": False},
+    })
+    rr = map_notion_reddit(page)
+    assert rr.raw["subject"] == "competitor"          # no Omada marker
+    assert rr.raw["omada_impact"] == "neutral"        # competitor + neutral
+    assert rr.raw["switch_intent"] is False
+
+
+def test_notion_youtube_mapper_brand_and_impact():
+    from nintel.connectors.sentiment_monitor import map_notion_youtube
+
+    page = _notion_page({
+        "标题": {"type": "title", "title": [{"plain_text": "TP-Link Omada SDN review"}]},
+        "视频链接": {"type": "url", "url": "https://www.youtube.com/watch?v=xyz"},
+        "发布时间": {"type": "date", "date": {"start": "2026-05-29T00:00:00Z"}},
+        "情感倾向": {"type": "select", "select": {"name": "正面"}},
+        "播放量": {"type": "number", "number": 1000},
+    })
+    rr = map_notion_youtube(page)
+    assert rr.source == "youtube" and rr.published == "2026-05-29"
+    assert rr.raw["subject"] == "omada_self"
+    assert rr.raw["omada_impact"] == "strength_confirm"   # omada_self + positive
+    assert rr.raw["metrics"]["views"] == 1000
+
+
 def test_rss_mapper_parity():
     c = _fixture_row(RssReader(), "rss")
     live = {"link": c.url, "title": c.title, "published": c.published, "summary": "x"}

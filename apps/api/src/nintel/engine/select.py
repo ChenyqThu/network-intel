@@ -91,6 +91,31 @@ def _days_between(iso_date: str, as_of: date) -> int:
     return (as_of - prev).days
 
 
+def _norm_title(title: str | None) -> str:
+    return " ".join((title or "").lower().split())
+
+
+def _collapse_crossposts(items: list[dict]) -> list[dict]:
+    """Collapse the same story duplicated across a source to one representative.
+
+    The sentiment monitor captures a post cross-posted to several subreddits as
+    distinct rows (different URLs → distinct ``content_hash``), so a report could
+    otherwise show one story 2-3×. Keyed on (source, normalized title); the
+    highest-engagement copy wins. Items without a title are left untouched.
+    """
+    best: dict[tuple, dict] = {}
+    passthrough: list[dict] = []
+    for it in items:
+        nt = _norm_title(it.get("title"))
+        if not nt:
+            passthrough.append(it)
+            continue
+        key = (it.get("source"), nt)
+        if key not in best or heat_score(it) > heat_score(best[key]):
+            best[key] = it
+    return list(best.values()) + passthrough
+
+
 def is_fresh(item_date: str | None, as_of: date, window_days: int) -> bool:
     """Freshness gate: an item qualifies only if its publish date falls inside
     the report window — within ``window_days`` of ``as_of`` and not in the
@@ -192,7 +217,7 @@ def select_for_report(
             "select: freshness window=%dd dropped %d/%d stale items (as_of=%s type=%s)",
             window, len(items) - len(fresh_items), len(items), as_of_iso, report_type,
         )
-    items = fresh_items
+    items = _collapse_crossposts(fresh_items)
 
     from ..store.db import session_scope
     from ..store.models import HeatSnapshotRow, IntelItemRow
@@ -244,11 +269,44 @@ def select_for_report(
                 scored.append((it, decision.reason, heat))
 
     scored.sort(key=lambda t: (order_bucket(t[1], t[0]), -t[2]))
-    scored = _balance_by_source(scored, cfg.max_items_daily)
+    scored = _balance(scored, cfg.max_items_daily)
     return SelectionResult(
         items=[t[0] for t in scored],
         reasons={t[0]["url"]: t[1] for t in scored if t[1] and t[1] != REASON_NEW},
     )
+
+
+_SUBJECT_ORDER = ("omada_self", "competitor", "industry")
+
+
+def _balance(scored: list, limit: int) -> list:
+    """Two-level fair selection.
+
+    Round-robin across **subjects** first — so ``omada_self`` (our own sentiment,
+    the report's namesake section) is always represented and not crowded out by
+    high-engagement competitor chatter — then round-robin across **sources**
+    within each subject so one source doesn't dominate. Heat order is preserved
+    inside a (subject, source) group. This is what makes the ``omada_self``
+    section populate whenever the monitor has Omada/TP-Link posts in window.
+    """
+    from collections import OrderedDict
+
+    by_subj: "OrderedDict[str, list]" = OrderedDict()
+    for t in scored:
+        by_subj.setdefault(t[0].get("subject", "competitor"), []).append(t)
+    # Order items within each subject by a source round-robin (full length).
+    for subj in by_subj:
+        by_subj[subj] = _balance_by_source(by_subj[subj], len(by_subj[subj]))
+    order = [s for s in _SUBJECT_ORDER if s in by_subj]
+    order += [s for s in by_subj if s not in order]
+    out: list = []
+    while len(out) < limit and any(by_subj.values()):
+        for subj in order:
+            if by_subj[subj]:
+                out.append(by_subj[subj].pop(0))
+                if len(out) >= limit:
+                    break
+    return out
 
 
 def _balance_by_source(scored: list, limit: int) -> list:
