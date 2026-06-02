@@ -274,6 +274,9 @@ def _normalize_llm_doc(
     if not doc.get("date"):
         doc["date"] = date.today().isoformat()
     doc.setdefault("date_range", doc["date"])
+    doc.setdefault("items", [])
+    if not isinstance(doc.get("lead"), dict):
+        doc["lead"] = {"text": "", "cite_refs": []}
     # stats + dashboard are recomputed by the trend stage — force clean values
     # so a malformed LLM block (e.g. top_hot of strings) can't fail validation.
     doc["stats"] = {"total_items": len(doc.get("items", []))}

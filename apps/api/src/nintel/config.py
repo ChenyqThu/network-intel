@@ -25,13 +25,19 @@ from functools import lru_cache
 from pathlib import Path
 
 try:  # python-dotenv is a hard dependency, but stay import-safe.
-    from dotenv import load_dotenv
+    from dotenv import dotenv_values, find_dotenv, load_dotenv
 
-    # override=True so the project's .env is authoritative for its own config
-    # even when the host process injects ANTHROPIC_*/etc. into the environment
-    # (e.g. a Claude Code harness exporting ANTHROPIC_BASE_URL). Tests stay
-    # hermetic because conftest sets/pops the relevant vars after import.
-    load_dotenv(override=True)
+    _envfile = find_dotenv()
+    # override=False: the real environment (shell / launchd / cron) wins over
+    # .env, so runtime + per-job config works. BUT the host (e.g. a Claude Code
+    # harness) injects ANTHROPIC_BASE_URL + an empty ANTHROPIC_API_KEY that would
+    # mask the project's values — so force just those two from .env.
+    load_dotenv(_envfile, override=False)
+    if _envfile:
+        _vals = dotenv_values(_envfile)
+        for _k in ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"):
+            if _vals.get(_k):
+                os.environ[_k] = _vals[_k]
 except Exception:  # pragma: no cover - defensive only
     pass
 

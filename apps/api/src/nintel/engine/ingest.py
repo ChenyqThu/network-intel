@@ -84,7 +84,16 @@ def ingest(
 
     raw: list[dict[str, Any]] = []
     for conn in connectors:
-        for row in conn.fetch(since):
+        try:
+            rows = conn.fetch(since)
+        except Exception as exc:  # noqa: BLE001 - one bad source must not kill the report
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "connector %s failed, skipping: %s", getattr(conn, "name", conn), exc
+            )
+            continue
+        for row in rows:
             raw.append(normalize(row))
 
     items = _dedupe(raw)
