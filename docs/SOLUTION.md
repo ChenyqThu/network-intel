@@ -95,13 +95,14 @@
 
 ## 四、数据源设计（v1.1 重写）
 
-### 来源 A：个人情报流 summary.jsonl（复用）
+### 来源 A：个人情报流 summary.jsonl（复用，含两类舆情）
 
 直接读现有 summary.jsonl，过滤条件：
-- tag 包含 `[竞品]` 或 `[用户声音]`
-- category = networking
-- src = reddit 且 subreddit 含 Ubiquiti/TPLink_Omada/Omada_Networks
-- src = youtube 且标题含 UniFi/Ubiquiti 关键词
+- **Omada 自身舆情（subject=omada_self，重要）**：src=reddit 且 subreddit 含 `TPLink_Omada`/`Omada_Networks`（日报标 `[用户声音]`）；src=youtube 且标题/正文含 Omada。这是自家产品的 bug/功能请求/好评/痛点/流失信号
+- **竞品舆情（subject=competitor）**：src=reddit 且 subreddit 含 `Ubiquiti`（标 `[竞品]`）；src=youtube 且标题含 UniFi/Ubiquiti
+- **行业（subject=industry）**：category = networking；src = rss/x 的行业条目
+
+> ⚠️ 本产品不是纯竞品跟踪。**Omada 自身舆情是与竞品舆情并重的一级维度**，日报里一直有（r/TPLink_Omada `[用户声音]`）。自身舆情是产品改进输入（bug/功能请求），竞品舆情是市场机会识别。
 
 ### 来源 B：UNIFI_CHANNELS Supabase（v1.1 核心新增）
 

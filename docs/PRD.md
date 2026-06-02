@@ -9,15 +9,21 @@
 ## 一、产品概述
 
 ### 1.1 一句话定义
-面向 TP-Link 网络产品团队的内部竞品动态 & 用户舆情情报站——每日极简增量、每周深度精选，聚合 UniFi 官方动态与全网用户声音，并给出对 Omada 的影响判断。
+面向 TP-Link 网络产品团队的内部情报站——每日极简增量、每周深度精选，同时监控 **Omada 自身舆情**（自家产品的 bug/好评/功能请求/口碑）、**竞品动态**（UniFi 新品/固件/定价）与 **行业概况**，并对每条信号给出对 Omada 的意义判断。
+
+> ⚠️ **定位边界（重要）**：本产品**不是纯竞品跟踪**。舆情有两类，缺一不可：
+> 1. **Omada 自身舆情** — r/TPLink_Omada / r/Omada_Networks / YouTube 上对自家产品的真实声音（固件 bug、功能请求、好评、痛点、流失信号）——这是日报一直有的 `[用户声音]`
+> 2. **竞品舆情** — UniFi 用户痛点 / Omada vs UniFi 对比
+> 两类同样重要：自身舆情是产品改进输入，竞品舆情是市场机会识别。
 
 ### 1.2 解决什么问题
 
 | 痛点 | 现状 | 本产品 |
 |------|------|--------|
+| Omada 自身舆情散落 | 自家产品 bug/请求散在 r/TPLink_Omada 无人汇总 | 自动采集入库，产品改进闭环 |
 | 竞品动态分散 | 团队各自零散刷 Reddit/YouTube/官网 | 一处聚合，自动筛选 |
 | 舆情无沉淀 | 用户反馈看完即忘 | 结构化入库，趋势可追溯 |
-| 缺我方视角 | 信息是中立的，无关联判断 | 每条标注对 Omada 的威胁/机会 |
+| 缺我方视角 | 信息是中立的，无关联判断 | 每条标注对 Omada 的意义（自身：修复/需求；竞品：威胁/机会） |
 | 触达不均 | 信息只在个人手里 | Web + 飞书 + 邮件多端触达 |
 
 ### 1.3 受众与角色
@@ -41,7 +47,8 @@
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | string | 唯一标识（去重用 content_hash） |
-| source | enum | unifi_community / unifi_product / unifi_store / blog / reddit / youtube / rss / x |
+| source | enum | omada_community / unifi_community / unifi_product / unifi_store / blog / reddit / youtube / rss / x |
+| **subject** | enum | **omada_self（Omada 自身）/ competitor（竞品）/ industry（行业）** —— 信号谈的是谁，决定进哪个板块 |
 | date | date | 信号产生日期 |
 | title | string | 标题 |
 | url | string | 原文完整链接（必填，用于出处行跳转） |
@@ -49,10 +56,14 @@
 | source_tier | enum | official（ui.com 一手）/ community（reddit/yt 二手），可信度分层 |
 | cite_id | int | 报告内引用编号（render 时分配，对应末尾参考列表） |
 | summary | string | 一句话摘要（LLM 生成） |
-| category | enum | industry（行业）/ competitor（竞品）/ sentiment（舆情）/ new_product（新品）/ pricing（定价） |
+| category | enum | 细分类：bug / feature_request / praise / pain_point / new_product / pricing / firmware / industry_trend 等 |
 | signal_strength | enum | high / medium / low |
-| omada_impact | enum | threat / opportunity / neutral / unknown |
+| omada_impact | enum | threat / opportunity / neutral / **needs_fix / feature_input / strength_confirm** / unknown |
 | impact_note | string | 影响判断的一句话理由（仅 high/medium 时生成） |
+
+> ⚠️ **subject 是新增的核心字段**：区分「信号谈的是 Omada 自己还是竞品」。omada_impact 语义随 subject 变：
+> - subject=omada_self 时：`needs_fix`（自家 bug，需修）/ `feature_input`（功能请求，需求输入）/ `strength_confirm`（好评，优势确认）
+> - subject=competitor 时：`threat`（威胁）/ `opportunity`（机会）/ `neutral`
 | raw_metrics | json | { likes, comments, score, price_change } |
 
 ### 2.2 报告（Report）
@@ -106,26 +117,37 @@
 ### 4.1 日报内容块
 ```
 标题区：Network Intel · {日期} · 日报
-├── ⚔️ 竞品动态（0~3 条）  来源: product_releases / store / blog
-├── 🗣️ 用户舆情（1~2 条）  来源: community_posts / reddit 热帖
-└── 🏭 行业要闻（≤3 条）   来源: rss / x / youtube
-空状态：今日无重大竞品动态
+├── 🟢 Omada 自身舆情（0~3 条） subject=omada_self
+│     来源: r/TPLink_Omada / r/Omada_Networks / YouTube
+│     重点：固件 bug / 功能请求 / 高热痛点 / 明显好评
+├── ⚔️ 竞品动态（0~3 条）     subject=competitor
+│     来源: product_releases / store / blog / UniFi 舆情
+└── 🏭 行业要闻（≤3 条）       subject=industry
+      来源: rss / 分析师 / x / youtube
+空状态：某板块无信号则该板块折叠或单行说明
 ```
+
+> 日报三板块并列：**Omada 自身舆情放最前**（自家产品问题优先看），然后竞品，最后行业。
 
 ### 4.2 周报内容块
 ```
 标题区：Network Intel · {周范围} · 周报
-├── 1. ⚔️ 本周竞品动作盘点
-│      逐条卡片：标题 / 类型标签 / omada_impact 徽章 / impact_note / 链接
-├── 2. 🗣️ 用户舆情趋势
-│      Omada vs UniFi 口碑对比 + 高频痛点 Top5 + 环比变化
-├── 3. 🏪 store 动向
+├── 1. 🟢 本周 Omada 自身舆情（subject=omada_self）
+│      固件 bug 汇总 / 高频功能请求 Top5 / 好评亮点 / 流失信号
+│      → 这是产品团队最该看的一区，直接输入需求/修复优先级
+├── 2. ⚔️ 本周竞品动作盘点
+│      UniFi 新品/固件/定价，逐条 + omada_impact 徽章 + impact_note
+├── 3. 🗣️ 竞品舆情与对比
+│      Omada vs UniFi 口碑对比 + UniFi 痛点 + 环比变化
+├── 4. 🏪 store 动向
 │      价格/库存/上架变化表
-├── 4. 🏭 行业风向
+├── 5. 🏭 行业风向
 │      趋势条目 + 一句话点评
-└── 5. 📊 数据看板
-       信号量统计 / 各源贡献饼图 / 热度 Top10
+└── 6. 📊 数据看板
+       信号量统计 / 各源贡献饼图 / Omada vs UniFi 舆情量对比 / 热度 Top10
 ```
+
+> 周报把 **Omada 自身舆情独立为第一区**——这是产品团队的核心价值（bug汇总+功能请求是直接的产品输入），不能淹在竞品对比里。
 
 ---
 
@@ -373,16 +395,23 @@ community.ui.com 是 SPA，**任何 URL 都返 HTTP 200**（连 404 页也是 20
   },
   "sections": [
     {
-      "key": "competitor",              // competitor | sentiment | industry | store (周报)
+      "key": "omada_self",              // omada_self | competitor | sentiment | industry | store (周报)
+      "title": "Omada 自身舆情",
+      "icon": "🟢",
+      "items": ["<intel_item.id>", ...]   // 引用 items 数组里的 id，保持顺序=展示顺序
+    },
+    {
+      "key": "competitor",
       "title": "竞品动态",
       "icon": "⚔️",
-      "items": ["<intel_item.id>", ...]   // 引用 items 数组里的 id，保持顺序=展示顺序
+      "items": ["<intel_item.id>", ...]
     }
   ],
   "items": [                             // 所有被选中的情报条目（Opus 筛选后）
     {
       "id": "unifi_release_84641421",
       "cite_id": 1,                       // 报告内引用编号，与参考列表对应
+      "subject": "competitor",            // omada_self | competitor | industry（决定进哪个 section）
       "source": "unifi_community",        // 枚举见 §2.1
       "source_domain": "community.ui.com",
       "source_tier": "official",          // official | community（可信度分层）
