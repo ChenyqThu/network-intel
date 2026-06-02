@@ -1,8 +1,8 @@
 # 竞品 & 舆情情报产品 — 完整方案（内部版）
 
-> 版本 v1.1 · 2026-06-01 · 作者 Jarvis
-> **v1→v1.1 核心变更**：发现 `~/Projects/UNIFI_CHANNELS` 是完整竞品情报平台，已有 9 个 GitHub Action 每天爬取 UniFi blog/community/store/product 并存入 Supabase PostgreSQL。§四「自建官方源采集器」整个替换为「消费 UNIFI_CHANNELS Supabase」，P0 工作量大幅缩减。
-> 决策基线：① 受众=仅内部团队 ② 节奏=日报极简+周报深度 ③ Web=独立轻量站（CF Pages）④ unifi_releases stale 问题挂 todo 不阻塞主线
+> 版本 v1.2 · 2026-06-01 · 作者 Jarvis
+> **v1.1→v1.2 核心变更**：架构理顺为「**JSON 契约流水线**」——三块数据汇总 → 统一提示词 → Haiku 总结 + Opus 策展 → 固定 JSON → 前端渲染。新增：① 行业源补齐（行业媒体 RSS + 分析师/标准动态）② Haiku/Opus 职责分层 ③ JSON 作为引擎与前端的契约 ④ 发布前人工复核位。
+> 决策基线：① 受众=仅内部团队 ② 节奏=日报极简+周报深度 ③ Web=独立轻量站（CF Pages）④ 行业源两者都补 ⑤ JSON 留人工复核位 ⑥ unifi_releases stale 挂 todo 不阻塞主线
 
 ---
 
@@ -108,9 +108,26 @@
 psql 直连，按 created_at/published_at 增量消费：
 
 - **竞品新品（高价值）**：`product_releases` 按 release_date 增量拉取
-- **官方博客**：`blog_articles` 按 published_at 增量拉取
+- **官方博客**：`blog_articles` 按 published_at 增量拉取（表有现成 canonical_url）
 - **用户舆情（热帖筛选）**：`community_posts` 按 published_at 增量，过滤 like_count > 50 或 comment_count > 20
 - **定价/上架变动**：`store_variant_history` 按 changed_at 增量
+
+> ⚠️ community URL 拼接铁律：`community.ui.com/{releases|questions|stories}/{slug}/{完整 UUID}`，不能截断/省略 ID（SPA 站，curl 全返 200，验证须浏览器渲染）。
+
+### 来源 C：行业概况补齐（v1.2 新增）
+
+当前「行业概况」只有 Lenny RSS + r/networking + X 零散，**太薄，不对口**（Lenny 是 PM newsletter）。两层补齐：
+
+**C-1 行业媒体 RSS（高频底座，量大低成本）**——加入 fetch_rss 源列表：
+- The Register（networking 板块）/ CRN / Channel Futures / SDxCentral / Network World / The Verge networking
+- 面向渠道与企业网络的专业媒体，覆盖 SMB/MSP 生态
+
+**C-2 分析师 / 标准组织（低频高信号）**：
+- Wi-Fi Alliance / IEEE 802.11 标准动态（Wi-Fi 7/8 进展）
+- Gartner / IDC 网络设备市场新闻稿
+- 竞品 + 主要玩家财报/季报要点（Ubiquiti 已有 UNIFI_CHANNELS SEC 源；Cisco/HPE Aruba/锐捷另补）
+
+> 实现上 C-1 走现有 `fetch_rss.py` 扩展 feed 列表（零新架构）；C-2 部分走 RSS，无 RSS 的用周期性 web_search 补。行业源产出同样归一化入 Intel Item schema。
 
 ### 数据融合统一 schema
 
@@ -132,7 +149,9 @@ psql 直连，按 created_at/published_at 增量消费：
 
 ---
 
-## 五、架构设计（v1.1）
+## 五、架构设计（v1.2 — JSON 契约流水线）
+
+> v1.2 把架构理顺成一条流水线：**三块数据汇总 → 统一提示词 → Haiku 总结 + Opus 策展 → 固定 JSON → 前端渲染**。下方旧版数据流图保留作参考，核心新增在图后「JSON 契约 / 两阶 LLM / 人工复核」三段。
 
 ```
 数据来源层
@@ -159,11 +178,54 @@ psql 直连，按 created_at/published_at 增量消费：
   历史归档 + 检索
 ```
 
+### v1.2 流水线（权威架构）
+
+```
+【数据汇总层】三块数据归一化为 Intel Item
+  行业概况            用户舆情              竞品动态
+  RSS/分析师/标准     community_posts       product_releases
+  (来源 A+C)         + Reddit/YT (来源A)   + blog + store (来源B)
+         └────────────────┬──────────────────┘
+                          ▼
+  ingest.py  三块归一化 → SQLite 增量入库 + 去重
+                          │
+                          ▼
+【策展引擎层】统一提示词驱动的两阶 LLM
+  ① Haiku 逐条总结  — 体力活：摘要/分类/热度提取（所有 item）
+  ② Opus 策展      — 脑力活：选哪几条/排序/omada_impact 判断/
+                      写 impact_note/合成导语/分配 cite_id（仅高价值集）
+                          │
+                          ▼
+  【固定 report.json：引擎最终产物 = 前后端契约】
+   结构化 / 含完整引用 / 可离线验证
+                          │
+         ┌────────────────┤ ←← 【人工复核位】发布前可编辑 JSON
+         ▼                ▼      (删误判/改impact/调序)
+  【前端渲染】          【其他消费者】
+  CF Pages 读 json     飞书推送 / 邮件
+  渲染日报/周报         同读同一份 JSON
+```
+
+**核心设计：JSON 是契约**
+- 引擎只产出结构化 `report.json`，前端只管渲染 —— 彻底解耦
+- 前端改版不动引擎，引擎换源不动前端
+- JSON 固定 → 前端可拿假 JSON 先做，引擎可离线验证
+- 同一份 JSON 驱动 web/飞书/邮件三端，不重复渲染逻辑
+
+**两阶 LLM 职责分层**
+- **Haiku（便宜×量大）**：逐条摘要、初步分类、热度提取——所有 item 都过一遍
+- **Opus（贵×判断）**：从 Haiku 结果中选/排序/判 omada_impact/写 impact_note/合成导语/挂 cite_id——只处理筛选后的高价值集，控成本
+
+**人工复核位（v1.2 新增）**
+- Opus 出 `report.json` 后，发布前可人工编辑（删误判条目/改 impact/调顺序），再渲染
+- 内部竞品报告的 impact 判断会被同事当真，留个人工闸门更稳
+- 实现：JSON 落盘到待发目录 → 可选人工 review → 确认后触发 publish（自动/手动可配）
+
 **设计原则**：
 - 采集层零修改，UNIFI_CHANNELS 和个人情报流各自独立运行
 - 报告引擎独立新项目，独立 cron，不污染任何现有项目
 - UNIFI_CHANNELS 作纯粹数据源，不往里加功能（它有自己的 Vue 前端和使用场景）
-- Web 是独立 CF Pages 站，不嵌入 UNIFI_CHANNELS Vue 平台
+- Web 是独立 CF Pages 站，读 JSON 渲染，不嵌入 UNIFI_CHANNELS Vue 平台
 
 ---
 

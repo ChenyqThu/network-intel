@@ -75,15 +75,20 @@
 - **FR-1.2** 从个人情报流 summary.jsonl 过滤竞品/舆情/networking 条目
 - **FR-1.3** 两路数据归一化为统一 Intel Item schema，写入 SQLite，按 content_hash 去重
 
-### 3.2 智能加工（FR-2）
-- **FR-2.1** Haiku 对每条 item 二次分类（category）
-- **FR-2.2** Haiku 判断 omada_impact + 生成 impact_note（仅 high/medium signal）
-- **FR-2.3** signal_strength 评分（基于热度指标 + 来源权重）
+### 3.2 策展引擎（FR-2，统一提示词驱动的两阶 LLM）
+- **FR-2.1 Haiku 逐条总结**：对每条 item 生成摘要 + 初步分类（category）+ 提取热度指标
+- **FR-2.2 Opus 策展**：从 Haiku 结果中选哪几条入报 + 排序 + 判 omada_impact + 写 impact_note + 合成顶部导语 + 分配 cite_id
+- **FR-2.3** 两阶均走**统一提示词**（维护于 `prompts/`），口径一致可迭代
+- **FR-2.4** 输出固定 `report.json`（Schema 见 §7.9）——引擎唯一产物
+
+### 3.2b 人工复核（v1.2 新增）
+- `report.json` 生成后落盘到待发目录，发布前可人工编辑（删误判条目/改 impact/调顺序）
+- 复核模式可配：自动发布 / 人工确认后发布（内部重要报告默认后者）
 
 ### 3.3 报告生成（FR-3）
 - **FR-3.1 日报**：当天硬信号，竞品动态 + Top 舆情 + ≤3 行业要闻；无信号则单行说明
 - **FR-3.2 周报**：五分区（竞品盘点 / 舆情趋势 / store 动向 / 行业风向 / 数据看板），含环比趋势
-- **FR-3.3** 双格式渲染：Markdown（飞书）+ HTML（web/邮件）
+- **FR-3.3** 前端读同一份 `report.json` 渲染：Web / 飞书 / 邮件三端不重复渲染逻辑
 
 ### 3.4 发布（FR-4）
 - **FR-4.1** 飞书群推送（日报/周报）
@@ -124,18 +129,22 @@
 
 ---
 
-## 五、技术架构（实现参考）
+## 五、技术架构（v1.2 — JSON 契约流水线）
 
 ```
-两路数据源 → ingest（归一化+去重）→ SQLite
-  → classify（Haiku 打标）→ render（日报/周报）
-  → 发布（飞书 / CF Pages / 邮件）
+三块数据汇总（行业 + 舆情 + 竞品）
+  → ingest（归一化 + 去重）→ SQLite
+  → 统一提示词 → Haiku 逐条总结 + Opus 策展
+  → 固定 report.json（引擎产物 = 前后端契约）
+  → [人工复核位] → 前端渲染（web / 飞书 / 邮件 同读一份 JSON）
 ```
 
 - 项目路径：`~/Projects/network-intel/`
 - DB：SQLite（nintel.db）
-- LLM：CRS haiku（分类）/ sonnet（周报综合）
-- Web：Cloudflare Pages（复用 health-worker wrangler）
+- LLM分层：**Haiku** 逐条摘要/分类/热度（量大） + **Opus** 策展选择/排序/impact 判断/合成导语（筛选后高价值集）
+- **契约**：引擎只产 `report.json`，前端只渲染；Schema 定义见 §7.9
+- 人工复核：Opus 出 JSON 后可人工编辑再发（默认可配自动/手动）
+- Web：Cloudflare Pages（复用 health-worker wrangler），读 JSON 渲染
 - 详细目录结构见 `docs/SOLUTION.md` §八
 
 ---
@@ -347,6 +356,77 @@ community.ui.com 是 SPA，**任何 URL 都返 HTTP 200**（连 404 页也是 20
 - **数据库里有完整 UUID**：product_releases.release_id / community_posts.post_id，拼 URL 时用完整 UUID，不要截断
 - blog_articles 表有现成 `canonical_url`，直接读，不用拼
 
+## 7.9 report.json 契约 Schema（前后端渲染契约）— 最重要
+
+> 这是引擎与前端的**唯一接口**。引擎产出这个 JSON，前端照这个 JSON 渲染。设计师可拿这个结构直接做渲染设计，工程可拿这个结构定 render 输出。两边都以此为准。
+
+```json
+{
+  "report_id": "2026-06-01-daily",
+  "type": "daily",                      // daily | weekly
+  "date": "2026-06-01",
+  "date_range": "2026-06-01",           // 周报为 "2026-05-26~06-01"
+  "generated_at": "2026-06-01T09:30:00-07:00",
+  "lead": {                              // 顶部导语（Opus 合成）
+    "text": "今日两记硬信号：UniFi OS 全线升 5.1.15 RC{{cite:1}}，5G Backup 正式发布{{cite:2}}——一记节奏施压、一记补齐 WAN 冗余。",
+    "cite_refs": [1, 2]                  // 导语引用的 cite_id，{{cite:N}} 占位符前端渲为可点上标
+  },
+  "sections": [
+    {
+      "key": "competitor",              // competitor | sentiment | industry | store (周报)
+      "title": "竞品动态",
+      "icon": "⚔️",
+      "items": ["<intel_item.id>", ...]   // 引用 items 数组里的 id，保持顺序=展示顺序
+    }
+  ],
+  "items": [                             // 所有被选中的情报条目（Opus 筛选后）
+    {
+      "id": "unifi_release_84641421",
+      "cite_id": 1,                       // 报告内引用编号，与参考列表对应
+      "source": "unifi_community",        // 枚举见 §2.1
+      "source_domain": "community.ui.com",
+      "source_tier": "official",          // official | community（可信度分层）
+      "source_label": "UniFi 官方 · Release",  // 来源徽章显示文本
+      "title": "UniFi OS - Express 7  v5.1.15",
+      "badges": ["新品", "竞品"],            // 分类标签
+      "stage": "RC",                      // 可选：固件阶段 GA/RC/EA
+      "summary": "UniFi Express 7 发布 5.1.15 RC，UniFi OS 核心栈更新",
+      "category": "new_product",          // 见 §2.1
+      "omada_impact": "threat",           // threat | opportunity | neutral | unknown
+      "impact_note": "Express 7 是 UniFi 主打一体化入门网关，固件节奏对标 Omada 入门线",
+      "metrics": { "views": 376, "comments": 3, "likes": null, "score": null },
+      "date": "2026-06-01",
+      "url": "https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/84641421-6507-48af-914f-c0cb5f704c76"
+    }
+  ],
+  "references": [                         // 末尾参考列表（与 cite_id 一一对应）
+    {
+      "cite_id": 1,
+      "title": "UniFi OS - Express 7 v5.1.15 (RC)",
+      "source_domain": "community.ui.com",
+      "date": "2026-06-01",
+      "url": "https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/84641421-6507-48af-914f-c0cb5f704c76"
+    }
+  ],
+  "stats": {                             // 数据看板（周报重点）
+    "total_items": 12,
+    "by_source": { "unifi_community": 5, "reddit": 4, "blog": 1, "youtube": 2 },
+    "by_impact": { "threat": 3, "opportunity": 4, "neutral": 5 },
+    "top_hot": [ { "id": "...", "title": "...", "score": 553 } ]
+  }
+}
+```
+
+**前端渲染约定**：
+- `lead.text` 里的 `{{cite:N}}` 占位符→ 渲为可点击上标，跳到对应 item 或 reference
+- `sections[].items` 是 id 引用，按数组顺序渲染（Opus 已排好序）
+- 每个 item 底部渲出出处行：`🔗 {source_domain} · {date} · 查看原文 ↗` → `url`
+- `source_tier=official` 的 item 给更高视觉权重
+- `references` 渲为末尾参考列表
+- 日报只用 competitor/sentiment/industry 三 section；周报额外含 store + stats 看板
+
+**为什么这么设计**：items 扣为扁平数组 + sections 用 id 引用，是为了同一条情报可被多处引用（如既在竞品区又被导语引用）而不重复；cite_id 统一编号保证溯源一致。
+
 ---
 
 ## 八、开放问题
@@ -357,7 +437,7 @@ community.ui.com 是 SPA，**任何 URL 都返 HTTP 200**（连 404 页也是 20
 
 ---
 
-> PRD 完成。配合 `docs/SOLUTION.md` v1.1，§七 可直接交付 Claude design 启动网页设计。工程侧 P0 随时可启动。
+> PRD（v1.2）完成。配合 `docs/SOLUTION.md` v1.2 + `docs/SAMPLE_REPORT.md`，§七（含 §7.8 引用规范 + §7.9 JSON 契约）可直接交付 Claude design。工程侧 P0 随时可启动。
 
 ---
 
