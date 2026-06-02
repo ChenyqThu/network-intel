@@ -15,7 +15,7 @@ from nintel.connectors import RssReader, SentimentMonitorReader, SupabaseReader
 from nintel.connectors.base import RawRow
 from nintel.connectors.rss import map_rss_entry
 from nintel.connectors.sentiment_monitor import map_notion_record
-from nintel.connectors.supabase import map_supabase_row
+from nintel.connectors.supabase import map_blog_row, map_community_row, map_release_row
 from nintel.engine.ingest import content_hash
 
 SINCE = date(2000, 1, 1)
@@ -26,16 +26,40 @@ def _fixture_row(reader, source: str) -> RawRow:
     return next((r for r in rows if r.source == source), rows[0])
 
 
-def test_supabase_mapper_parity():
-    rel = _fixture_row(SupabaseReader(), "unifi_release")
-    live = {"url": rel.url, "title": rel.title, "published_at": rel.published + "T00:00:00Z", "likes": 10}
-    rr = map_supabase_row("product_releases", live)
-    assert rr.provenance == "B" and rr.source == "unifi_release"
-    assert rr.url == rel.url  # full UUID preserved, never truncated
-    # Same identity as the fixture row -> ingest would dedupe them together.
-    assert content_hash(rr.source, rr.url, rr.title) == content_hash(rel.source, rel.url, rel.title)
-    assert rr.raw["metrics"]["likes"] == 10
+def test_supabase_release_mapper():
+    # real product_releases row shape (verified live)
+    row = {"release_id": "8485312c-c516-431b-9723-ee42ee71769a", "slug": "Site-Manager-5-7-1",
+           "title": "Site Manager", "release_date": "2026-06-02T09:24:44Z",
+           "stage": "GA", "view_count": 348, "comment_count": 2}
+    rr = map_release_row(row)
+    assert rr.source == "unifi_release" and rr.provenance == "B"
+    assert rr.url == "https://community.ui.com/releases/Site-Manager-5-7-1/8485312c-c516-431b-9723-ee42ee71769a"
+    assert rr.published == "2026-06-02"
     assert rr.raw["source_tier"] == "official"
+    assert rr.raw["metrics"]["views"] == 348 and rr.raw["stage"] == "GA"
+    assert content_hash(rr.source, rr.url, rr.title)  # computable/stable
+
+
+def test_supabase_community_mapper():
+    row = {"post_id": "02757b49-87a3-429e-b0eb-89db4ecab2a3", "post_type": "question",
+           "slug": "Upgrade-AP-Pro-from-4-3-31", "title": "Upgrade AP Pro from 4.3.31",
+           "published_at": "2026-06-02T12:37:42Z", "view_count": 1, "comment_count": 0, "like_count": 3}
+    rr = map_community_row(row)
+    assert rr.source == "unifi_community" and rr.provenance == "B"
+    assert rr.url == "https://community.ui.com/questions/Upgrade-AP-Pro-from-4-3-31/02757b49-87a3-429e-b0eb-89db4ecab2a3"
+    assert rr.raw["metrics"]["likes"] == 3
+
+
+def test_supabase_blog_mapper():
+    row = {"slug": "introducing-unifi-5g-backup",
+           "canonical_url": "https://blog.ui.com/article/introducing-unifi-5g-backup",
+           "title": "Introducing UniFi 5G Backup", "published_at": "2026-05-21T08:39:48Z",
+           "view_count": 56683}
+    rr = map_blog_row(row)
+    assert rr.source == "blog" and rr.provenance == "B"
+    assert rr.url == "https://blog.ui.com/article/introducing-unifi-5g-backup"
+    assert rr.raw["source_domain"] == "blog.ui.com"
+    assert rr.raw["metrics"]["views"] == 56683
 
 
 def test_notion_mapper_parity():

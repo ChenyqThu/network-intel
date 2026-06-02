@@ -1,65 +1,99 @@
 """Source B — UNIFI_CHANNELS Supabase reader.
 
-Offline (default) it reconstructs provenance-``B`` rows from the seed reports.
-When ``NINTEL_CONNECTOR_MODE=live`` and ``B`` is in ``NINTEL_LIVE_SOURCES`` it
-queries the UNIFI_CHANNELS Supabase project (``SUPABASE_URL`` + ``SUPABASE_KEY``)
-and unions four tables, mapping each row via :func:`map_supabase_row`:
+All UniFi channel data lives in the UNIFI_CHANNELS Supabase (verified live: 75
+tables). This reader unions the three that map to intel items:
 
-* ``product_releases`` → ``unifi_release`` (community.ui.com/releases)
-* ``blog``             → ``blog``          (blog.ui.com)
-* ``community``        → ``unifi_community`` (community.ui.com questions)
-* ``store``            → ``unifi_store``    (store.ui.com)
+* ``product_releases``  → ``unifi_release``   (community.ui.com/releases/{slug}/{release_id})
+* ``community_posts``   → ``unifi_community`` (community.ui.com/questions/{slug}/{post_id})
+* ``blog_articles``     → ``blog``           (canonical_url)
 
-URL integrity (PRD §7.8.6) is preserved — full UUIDs, never truncated.
+Read over PostgREST with stdlib urllib (no supabase-py dependency). Offline
+(default) it reconstructs provenance-``B`` rows from the seed reports.
+
+(Store price/stock moves live in ``store_recent_*`` and feed the weekly ``store``
+table, not the item stream — handled separately.)
 """
 
 from __future__ import annotations
 
+import json
+import os
+import urllib.parse
+import urllib.request
 from datetime import date
 from typing import Any
 
 from .base import RawRow, connector_mode_guard, domain_of, seed_rows_for
 
 _LIVE_HINT = (
-    "A live reader queries the UNIFI_CHANNELS Supabase tables "
-    "(product_releases / blog / community / store) via SUPABASE_URL + SUPABASE_KEY."
+    "A live reader queries the UNIFI_CHANNELS Supabase (SUPABASE_URL + "
+    "SUPABASE_KEY) tables product_releases / community_posts / blog_articles."
 )
 
-_TABLE_SOURCE = {
-    "product_releases": "unifi_release",
-    "blog": "blog",
-    "community": "unifi_community",
-    "store": "unifi_store",
-}
+
+# --- pure mappers (parity-tested against real row shapes) ------------------
+def _iso_date(value: Any) -> str:
+    return str(value or "")[:10]
 
 
-def map_supabase_row(table: str, row: dict[str, Any]) -> RawRow:
-    """Map one Supabase row onto a :class:`RawRow` (pure; parity-tested)."""
-
-    source = _TABLE_SOURCE.get(table, "unifi_community")
-    url = row["url"]
-    title = row.get("title") or row.get("name") or ""
-    published = str(row.get("published_at") or row.get("created_at") or "")[:10]
+def map_release_row(row: dict[str, Any]) -> RawRow:
+    slug = row.get("slug") or ""
+    rid = row.get("release_id") or ""
+    url = (
+        f"https://community.ui.com/releases/{slug}/{rid}"
+        if slug and rid
+        else (row.get("primary_download_url") or f"https://community.ui.com/releases/{slug}")
+    )
+    title = row.get("title") or ""
+    published = _iso_date(row.get("release_date"))
     raw: dict[str, Any] = {
-        "source": source,
-        "provenance": "B",
-        "url": url,
-        "title": title,
-        "date": published,
-        "source_domain": domain_of(url),
-        "source_tier": "official" if source in ("unifi_release", "blog") else "community",
+        "source": "unifi_release", "provenance": "B", "url": url, "title": title,
+        "date": published, "source_domain": "community.ui.com", "source_tier": "official",
+        "stage": row.get("stage"),
+        "metrics": {"views": row.get("view_count"), "comments": row.get("comment_count")},
     }
-    metrics = {k: row[k] for k in ("likes", "comments", "views") if row.get(k) is not None}
-    if metrics:
-        raw["metrics"] = metrics
-    for k in ("stage", "badges", "sentiment"):
-        if row.get(k) is not None:
-            raw[k] = row[k]
-    return RawRow(source=source, provenance="B", url=url, title=title, published=published, raw=raw)
+    return RawRow(source="unifi_release", provenance="B", url=url, title=title, published=published, raw=raw)
+
+
+def map_community_row(row: dict[str, Any]) -> RawRow:
+    slug = row.get("slug") or ""
+    pid = row.get("post_id") or ""
+    url = f"https://community.ui.com/questions/{slug}/{pid}"
+    title = row.get("title") or ""
+    published = _iso_date(row.get("published_at"))
+    raw: dict[str, Any] = {
+        "source": "unifi_community", "provenance": "B", "url": url, "title": title,
+        "date": published, "source_domain": "community.ui.com", "source_tier": "official",
+        "metrics": {
+            "views": row.get("view_count"),
+            "comments": row.get("comment_count"),
+            "likes": row.get("like_count"),
+        },
+    }
+    return RawRow(source="unifi_community", provenance="B", url=url, title=title, published=published, raw=raw)
+
+
+def map_blog_row(row: dict[str, Any]) -> RawRow:
+    url = row.get("canonical_url") or f"https://blog.ui.com/article/{row.get('slug', '')}"
+    title = row.get("title") or ""
+    published = _iso_date(row.get("published_at"))
+    raw: dict[str, Any] = {
+        "source": "blog", "provenance": "B", "url": url, "title": title, "date": published,
+        "source_domain": domain_of(url) or "blog.ui.com", "source_tier": "official",
+        "metrics": {"views": row.get("view_count")},
+    }
+    return RawRow(source="blog", provenance="B", url=url, title=title, published=published, raw=raw)
+
+
+_TABLES = (
+    ("product_releases", "release_date", map_release_row),
+    ("community_posts", "published_at", map_community_row),
+    ("blog_articles", "published_at", map_blog_row),
+)
 
 
 class SupabaseReader:
-    """Reader for the UniFi official channels (source B)."""
+    """Reader for the UniFi official channels (source B), Supabase-backed."""
 
     name = "supabase:unifi_channels"
     provenance = "B"
@@ -70,20 +104,23 @@ class SupabaseReader:
         rows = seed_rows_for(provenances={"B"})
         return [r for r in rows if r.date >= since]
 
-    def _fetch_live(self, since: date) -> list[RawRow]:  # pragma: no cover - network
-        import os
-
-        from supabase import create_client  # optional [live] dependency
-
-        client = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+    def _fetch_live(self, since: date, *, limit: int = 200) -> list[RawRow]:  # pragma: no cover - network
         rows: list[RawRow] = []
-        for table in _TABLE_SOURCE:
-            data = (
-                client.table(table)
-                .select("*")
-                .gte("published_at", since.isoformat())
-                .execute()
-                .data
-            )
-            rows.extend(map_supabase_row(table, r) for r in data)
+        for table, date_col, mapper in _TABLES:
+            for record in _pg_get(table, date_col=date_col, since=since, limit=limit):
+                rows.append(mapper(record))
         return rows
+
+
+def _pg_get(table: str, *, date_col: str, since: date, limit: int) -> list[dict[str, Any]]:  # pragma: no cover - network
+    base = os.environ["SUPABASE_URL"].rstrip("/")
+    key = os.environ["SUPABASE_KEY"]
+    qs = urllib.parse.urlencode(
+        {"select": "*", date_col: f"gte.{since.isoformat()}", "order": f"{date_col}.desc", "limit": limit}
+    )
+    req = urllib.request.Request(
+        f"{base}/rest/v1/{table}?{qs}",
+        headers={"apikey": key, "Authorization": f"Bearer {key}", "Accept": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 (trusted host)
+        return json.loads(resp.read().decode("utf-8", "replace"))
