@@ -1,7 +1,8 @@
 # Network Intel 竞品情报产品 — PRD
 
-> 版本 v1 · 2026-06-01 · 作者 Jarvis · 内部代号 `nintel`
-> 配套方案文档：`docs/SOLUTION.md`（竞品 & 舆情情报产品完整方案 v1.1）
+> 版本 v1.3 · 2026-06-01 · 作者 Jarvis · 内部代号 `nintel`
+> 配套方案文档：`docs/SOLUTION.md` v1.3 · 设计 handoff：`docs/DESIGN_HANDOFF_v3.md` · 样例：`docs/SAMPLE_REPORT.md`
+> v1.3 变更：舆情源改为 omada-sentiment-monitor（Notion）；周报新增市场策略洞察；四类数据源 A/B/C/D
 > **本 PRD 面向两类读者**：① 工程实现 ② Web 设计（Claude design）。§七「Web 设计交付包」是给设计师的专用章节。
 
 ---
@@ -81,10 +82,14 @@
 
 ## 三、功能需求
 
-### 3.1 数据采集（FR-1）
-- **FR-1.1** 从 UNIFI_CHANNELS Supabase 增量拉取：product_releases / blog_articles / community_posts / store_variant_history
-- **FR-1.2** 从个人情报流 summary.jsonl 过滤竞品/舆情/networking 条目
-- **FR-1.3** 两路数据归一化为统一 Intel Item schema，写入 SQLite，按 content_hash 去重
+### 3.1 数据采集（FR-1，v1.3：四类来源）
+- **FR-1.1 来源 A 舆情主源** — 读 `omada-sentiment-monitor` 的 **Notion**（不是本地 SQLite）：Reddit DB `21d15375830d803aa102cec9b46957da` + YouTube DB `32a15375830d806b8818ee29aeda48c6` + KOL/Report DB。按 subject 分流：TPLink_Omada/Omada_Networks → omada_self；Ubiquiti → competitor。现成 AI 字段：情感倾向/相关性/切换意图/核心主张
+- **FR-1.2 来源 B 竞品官方** — UNIFI_CHANNELS Supabase 增量拉取：product_releases / blog_articles / community_posts / store_variant_history
+- **FR-1.3 来源 C 行业概况** — 行业媒体 RSS（The Register/CRN/SDxCentral 等）+ 分析师/标准动态（Wi-Fi Alliance/IEEE/Gartner）
+- **FR-1.4 来源 D 市场策略洞察** — 不是爬虫，是 Opus 在周报读一周 A+B+C 做战略综合判断
+- **FR-1.5** 三类事件数据归一化为统一 Intel Item schema，写入 SQLite，按 content_hash 去重
+
+> ⚠️ v1.3 变更：原 summary.jsonl 舆情线**退役**，改由专用系统 omada-sentiment-monitor 供舆情（每小时 GitHub Action 写 Notion，AI 字段更全）。
 
 ### 3.2 策展引擎（FR-2，统一提示词驱动的两阶 LLM）
 - **FR-2.1 Haiku 逐条总结**：对每条 item 生成摘要 + 初步分类（category）+ 提取热度指标
@@ -129,12 +134,16 @@
 
 > 日报三板块并列：**Omada 自身舆情放最前**（自家产品问题优先看），然后竞品，最后行业。
 
-### 4.2 周报内容块
+### 4.2 周报内容块（v1.3：加市场策略洞察置顶）
 ```
 标题区：Network Intel · {周范围} · 周报
+├── 0. 🎯 市场策略洞察（置顶，战略级，v1.3 新增）
+│      Opus 读一周竞品+舆情+财报的综合判断：
+│      SMB/企业网络市场格局 + 竞品战略意图 + 对 Omada 产品策略中长期建议
+│      → 与下面「事件级」区分；带引用上标溯源到具体事件卡片
 ├── 1. 🟢 本周 Omada 自身舆情（subject=omada_self）
 │      固件 bug 汇总 / 高频功能请求 Top5 / 好评亮点 / 流失信号
-│      → 这是产品团队最该看的一区，直接输入需求/修复优先级
+│      → 产品团队最该看，直接输入需求/修复优先级
 ├── 2. ⚔️ 本周竞品动作盘点
 │      UniFi 新品/固件/定价，逐条 + omada_impact 徽章 + impact_note
 ├── 3. 🗣️ 竞品舆情与对比
@@ -146,6 +155,8 @@
 └── 6. 📊 数据看板
        信号量统计 / 各源贡献饼图 / Omada vs UniFi 舆情量对比 / 热度 Top10
 ```
+
+> 市场策略洞察置顶：读者先看战略判断（本周市场怎么走/Omada 该怎么应），再往下看支撑判断的事件细节。策略区的结论同样可引用上标溯源。
 
 > 周报把 **Omada 自身舆情独立为第一区**——这是产品团队的核心价值（bug汇总+功能请求是直接的产品输入），不能淹在竞品对比里。
 
@@ -393,6 +404,11 @@ community.ui.com 是 SPA，**任何 URL 都返 HTTP 200**（连 404 页也是 20
     "text": "今日两记硬信号：UniFi OS 全线升 5.1.15 RC{{cite:1}}，5G Backup 正式发布{{cite:2}}——一记节奏施压、一记补齐 WAN 冗余。",
     "cite_refs": [1, 2]                  // 导语引用的 cite_id，{{cite:N}} 占位符前端渲为可点上标
   },
+  "strategy": {                          // 市场策略洞察（仅周报，v1.3 新增，置顶渲染）
+    "title": "市场策略洞察",
+    "body": "本周 UniFi 在 5G/WAN 冗余赛道集中投入{{cite:1}}{{cite:4}}，反映其向企业连续性市场下沉的战略意图……Omada 建议在蜂窝备份与多运营商控制上差异化{{cite:5}}。",
+    "cite_refs": [1, 4, 5]               // 战略结论同样挂来源编号，可点上标
+  },
   "sections": [
     {
       "key": "omada_self",              // omada_self | competitor | sentiment | industry | store (周报)
@@ -454,7 +470,9 @@ community.ui.com 是 SPA，**任何 URL 都返 HTTP 200**（连 404 页也是 20
 - `references` 渲为末尾参考列表
 - 日报只用 competitor/sentiment/industry 三 section；周报额外含 store + stats 看板
 
-**为什么这么设计**：items 扣为扁平数组 + sections 用 id 引用，是为了同一条情报可被多处引用（如既在竞品区又被导语引用）而不重复；cite_id 统一编号保证溯源一致。
+**为什么这么设计**：items 扣为扁平数组 + sections/strategy/lead 用 id或cite_id 引用，是为了同一条情报可被多处引用（如既在竞品区、又被导语和策略洞察引用）而不重复；cite_id 统一编号保证溯源一致。
+
+> 市场策略洞察（`strategy`）仅周报有，置顶渲染；日报 `strategy` 为 null。与 `lead` 类似也用 `{{cite:N}}` 占位符可点上标。
 
 ---
 
