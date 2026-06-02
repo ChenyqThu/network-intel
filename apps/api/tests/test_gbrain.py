@@ -87,3 +87,62 @@ def test_unconfigured_gbrain_raises(monkeypatch):
             gbrain.search("x")
     finally:
         get_settings.cache_clear()
+
+
+# --- write flow: reports -> kos ------------------------------------------
+def _sample_report():
+    return {
+        "report_id": "2026-06-01-daily", "type": "daily", "date": "2026-06-01",
+        "title": "测试日报", "lead": {"text": "导语 {{cite:1}}", "strong": "要点"},
+        "sections": [{"key": "omada_self", "title": "Omada 自身舆情", "items": ["d1"]}],
+        "items": [{"id": "d1", "title": "EAP610 bug", "omada_impact": "needs_fix",
+                   "summary": "升级失败", "impact_note": "建议 {{cite:1}}", "url": "https://x/1"}],
+        "references": [{"cite_id": 1, "title": "r", "url": "https://x/1", "date": "2026-06-01"}],
+    }
+
+
+def test_report_to_markdown_frontmatter_and_body():
+    md = gbrain.report_to_markdown(_sample_report())
+    assert md.startswith("---")
+    assert "type: source" in md and "source_of_truth: network-intel" in md
+    assert "title: '测试日报'" in md
+    assert "## Omada 自身舆情" in md
+    assert "EAP610 bug" in md and "https://x/1" in md
+    assert "{{cite:1}}" not in md and "[1]" in md  # cites converted, not raw
+
+
+def test_index_report_calls_put_page(monkeypatch, kos_env):
+    calls: dict = {}
+
+    def fake_call(name, arguments):
+        calls["name"], calls["args"] = name, arguments
+        return {"slug": arguments.get("slug"), "status": "created_or_updated", "chunks": 3}
+
+    monkeypatch.setattr(gbrain, "_mcp_call", fake_call)
+    res = gbrain.index_report(_sample_report())
+    assert calls["name"] == "put_page"
+    assert calls["args"]["slug"] == "network-intel/2026-06-01-daily"
+    assert calls["args"]["content"].startswith("---")
+    assert res["status"] == "created_or_updated"
+
+
+def test_gate_publish_auto_pushes_to_kos(monkeypatch, kos_env):
+    monkeypatch.setenv("NINTEL_KOS_PUBLISH", "true")
+    get_settings.cache_clear()
+    pushed: dict = {}
+
+    def fake_call(name, arguments):
+        pushed["name"], pushed["slug"] = name, arguments.get("slug")
+        return {"status": "created_or_updated"}
+
+    monkeypatch.setattr(gbrain, "_mcp_call", fake_call)
+    from nintel.api import repository
+    from nintel.review.gate import publish
+    from nintel.store.seed import seed
+
+    seed(reset=True)
+    publish("2026-06-01-daily", doc=repository.get_report("2026-06-01-daily"))
+    assert pushed.get("name") == "put_page"
+    assert pushed.get("slug") == "network-intel/2026-06-01-daily"
+    get_settings.cache_clear()
+    seed(reset=True)

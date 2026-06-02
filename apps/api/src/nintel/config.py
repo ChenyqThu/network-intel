@@ -96,6 +96,9 @@ class Settings:
     kos_mcp_base: str | None = None
     kos_oauth_client_id: str | None = None
     kos_oauth_client_secret: str | None = None
+    # Push published reports into kos (put_page under the client's write source).
+    kos_publish: bool = False
+    kos_slug_prefix: str = "network-intel"
 
     # LLM (only used when llm_enabled)
     anthropic_api_key: str | None = None
@@ -169,6 +172,8 @@ def get_settings() -> Settings:
         kos_mcp_base=os.getenv("KOS_MCP_BASE") or None,
         kos_oauth_client_id=os.getenv("KOS_OAUTH_CLIENT_ID") or None,
         kos_oauth_client_secret=os.getenv("KOS_OAUTH_CLIENT_SECRET") or None,
+        kos_publish=_env_bool("NINTEL_KOS_PUBLISH", False),
+        kos_slug_prefix=os.getenv("NINTEL_KOS_SLUG_PREFIX", "network-intel"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL") or None,
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),

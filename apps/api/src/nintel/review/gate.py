@@ -79,7 +79,31 @@ def publish(report_id: str, *, doc: dict[str, Any]) -> Path:
 
     if rag.kb_enabled():  # pragma: no cover - requires RAG + LLM enabled
         rag.index_items(doc.get("items", []))
+    _index_to_kos(doc)
     return out
+
+
+def _index_to_kos(doc: dict[str, Any]) -> None:
+    """Push the published report into kos as a page (auto-ingest).
+
+    Best-effort: the report is already written to disk + DB before this runs, so
+    a kos outage is logged (not silent) and never rolls back a published report.
+    """
+    settings = get_settings()
+    if not settings.kos_publish:
+        return
+    from ..engine import gbrain
+
+    if not gbrain.gbrain_configured():
+        return
+    try:
+        gbrain.index_report(doc)
+    except Exception:  # noqa: BLE001 - post-commit side effect must not fail publish
+        import logging
+
+        logging.getLogger(__name__).exception(
+            "kos index failed for %s (report still published)", doc.get("report_id")
+        )
 
 
 def _record_reported(doc: dict[str, Any]) -> None:

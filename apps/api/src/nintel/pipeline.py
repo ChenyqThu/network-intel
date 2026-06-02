@@ -160,6 +160,28 @@ def _cmd_kb(args: argparse.Namespace) -> int:
     elif args.kb_action == "clear":
         rag.clear(args.collection)
         print(f"kb clear: {args.collection or 'all'}")
+    elif args.kb_action == "push-report":
+        from .api import repository
+        from .engine import gbrain
+
+        doc = repository.get_report(args.report_id) if args.report_id else None
+        if not doc:
+            print(f"kb push-report: no published report '{args.report_id}'")
+            return 1
+        res = gbrain.index_report(doc)
+        status = res.get("status") if isinstance(res, dict) else res
+        print(f"kb push-report {args.report_id}: {status}")
+    elif args.kb_action == "push-all":
+        from .api import repository
+        from .engine import gbrain
+
+        pushed = 0
+        for entry in repository.archive_index():
+            doc = repository.get_report(entry["id"])
+            if doc:
+                gbrain.index_report(doc)
+                pushed += 1
+        print(f"kb push-all: pushed {pushed} reports")
     return 0
 
 
@@ -188,9 +210,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_kb = sub.add_parser("kb", help="manage the RAG knowledge base")
     p_kb.add_argument(
-        "kb_action", choices=["reindex", "index-history", "stats", "clear"]
+        "kb_action",
+        choices=["reindex", "index-history", "stats", "clear", "push-report", "push-all"],
     )
     p_kb.add_argument("--collection", default=None, help="for clear: background|history")
+    p_kb.add_argument("--report-id", default=None, help="for push-report")
     p_kb.set_defaults(func=_cmd_kb)
 
     args = parser.parse_args(argv)
