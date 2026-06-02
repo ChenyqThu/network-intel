@@ -19,7 +19,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -59,6 +68,24 @@ class IntelItemRow(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
+    # --- WS1 cross-day lifecycle / dedup state -------------------------------
+    # All nullable/defaulted so pre-existing rows survive an ALTER (see
+    # store/migrate.py) and the offline report round-trip stays byte-identical.
+    first_seen: Mapped[str | None] = mapped_column(String(16), index=True, nullable=True)
+    last_seen: Mapped[str | None] = mapped_column(String(16), index=True, nullable=True)
+    last_reported_at: Mapped[str | None] = mapped_column(String(16), index=True, nullable=True)
+    report_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    peak_heat: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
+    last_heat: Mapped[float] = mapped_column(Float, default=0.0, server_default="0", nullable=False)
+    last_sentiment: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    last_switch_intent: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0", nullable=False
+    )
+    # new | reported | dormant | resurfaced
+    state: Mapped[str] = mapped_column(
+        String(16), index=True, default="new", server_default="new", nullable=False
+    )
+
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"<IntelItemRow {self.item_id} {self.subject}/{self.omada_impact}>"
 
@@ -83,3 +110,50 @@ class ReportRow(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"<ReportRow {self.report_id} ({self.type})>"
+
+
+class ItemReportRow(Base):
+    """Junction linking an item (by ``content_hash``) to a report that surfaced it.
+
+    The previously-missing item↔report edge. Lets us answer "which reports
+    included this item" and powers cross-day dedup (``last_reported_at`` /
+    ``report_count`` on :class:`IntelItemRow`).
+    """
+
+    __tablename__ = "item_reports"
+    __table_args__ = (
+        UniqueConstraint("content_hash", "report_id", name="uq_item_report"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    content_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    report_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    report_date: Mapped[str | None] = mapped_column(String(16), index=True, nullable=True)
+    cite_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<ItemReportRow {self.content_hash[:8]}@{self.report_id}>"
+
+
+class HeatSnapshotRow(Base):
+    """A per-day engagement snapshot for an item — the time series behind
+    turning-point (heat-spike) detection and future trend charts."""
+
+    __tablename__ = "heat_snapshots"
+    __table_args__ = (
+        UniqueConstraint("content_hash", "observed_on", name="uq_heat_obs"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    content_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    observed_on: Mapped[str] = mapped_column(String(16), index=True, nullable=False)
+    heat: Mapped[float] = mapped_column(Float, default=0.0)
+    likes: Mapped[int] = mapped_column(Integer, default=0)
+    comments: Mapped[int] = mapped_column(Integer, default=0)
+    views: Mapped[int] = mapped_column(Integer, default=0)
+    sentiment: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<HeatSnapshotRow {self.content_hash[:8]}@{self.observed_on} h={self.heat}>"
