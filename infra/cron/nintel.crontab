@@ -1,0 +1,9 @@
+# Network Intel scheduled builds — cron fallback for the launchd plists.
+# Install:  crontab infra/cron/nintel.crontab   (or paste into `crontab -e`)
+# Edit the checkout path if yours differs. Secrets come from apps/api/.env.
+#
+# Daily 08:30 -> build + auto-publish (appears on the site after the next request)
+30 8 * * *  NINTEL_CONNECTOR_MODE=live NINTEL_LIVE_SOURCES=A,B,C NINTEL_LLM_ENABLED=true NINTEL_RAG_ENABLED=true NINTEL_REVIEW_MODE=auto /bin/sh /Users/chenyuanquan/Projects/network-intel/apps/api/scripts/run_pipeline.sh daily --publish
+#
+# Weekly Monday 09:00 -> build -> data/pending/ (run `nintel approve <id>` to publish)
+0 9 * * 1   NINTEL_CONNECTOR_MODE=live NINTEL_LIVE_SOURCES=A,B,C NINTEL_LLM_ENABLED=true NINTEL_RAG_ENABLED=true NINTEL_REVIEW_MODE=manual /bin/sh /Users/chenyuanquan/Projects/network-intel/apps/api/scripts/run_pipeline.sh weekly

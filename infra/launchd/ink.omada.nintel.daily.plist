@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Daily report build at 08:30, auto-published.
+  Install (edit paths if your checkout differs):
+    cp infra/launchd/ink.omada.nintel.daily.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ink.omada.nintel.daily.plist
+  Secrets (ANTHROPIC_API_KEY, SUPABASE_*, NOTION_*) live in apps/api/.env
+  (loaded by python-dotenv because WorkingDirectory is apps/api), NOT here.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ink.omada.nintel.daily</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>/Users/chenyuanquan/Projects/network-intel/apps/api/scripts/run_pipeline.sh</string>
+    <string>daily</string>
+    <string>--publish</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chenyuanquan/Projects/network-intel/apps/api</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>8</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NINTEL_CONNECTOR_MODE</key><string>live</string>
+    <key>NINTEL_LIVE_SOURCES</key><string>A,B,C</string>
+    <key>NINTEL_LLM_ENABLED</key><string>true</string>
+    <key>NINTEL_RAG_ENABLED</key><string>true</string>
+    <key>NINTEL_REVIEW_MODE</key><string>auto</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/chenyuanquan/Library/Logs/nintel/daily.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chenyuanquan/Library/Logs/nintel/daily.err.log</string>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

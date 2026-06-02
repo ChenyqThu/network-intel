@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Weekly deep-dive build, Monday 09:00, left in data/pending/ for manual review.
+  Approve with:  cd apps/api && .venv/bin/python -m nintel.pipeline approve <report_id>
+  Install:
+    cp infra/launchd/ink.omada.nintel.weekly.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/ink.omada.nintel.weekly.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ink.omada.nintel.weekly</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string>
+    <string>/Users/chenyuanquan/Projects/network-intel/apps/api/scripts/run_pipeline.sh</string>
+    <string>weekly</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/chenyuanquan/Projects/network-intel/apps/api</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>1</integer>
+    <key>Hour</key><integer>9</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NINTEL_CONNECTOR_MODE</key><string>live</string>
+    <key>NINTEL_LIVE_SOURCES</key><string>A,B,C</string>
+    <key>NINTEL_LLM_ENABLED</key><string>true</string>
+    <key>NINTEL_RAG_ENABLED</key><string>true</string>
+    <key>NINTEL_REVIEW_MODE</key><string>manual</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/chenyuanquan/Library/Logs/nintel/weekly.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/chenyuanquan/Library/Logs/nintel/weekly.err.log</string>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
