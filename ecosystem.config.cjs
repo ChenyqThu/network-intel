@@ -27,7 +27,10 @@ module.exports = {
       name: 'nintel-web',
       cwd: path.join(ROOT, 'apps/web'),
       script: 'node_modules/.bin/vite',
-      args: '--port 5173',
+      // Serve the optimized production build from dist/ (run `npm run build`
+      // first). --strictPort fails loudly instead of drifting to 5174, which
+      // would silently break the tunnel target.
+      args: 'preview --port 5173 --strictPort',
       interpreter: 'none', // vite has its own node shebang
       autorestart: true,
       max_restarts: 10,
