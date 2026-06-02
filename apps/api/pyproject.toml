@@ -21,9 +21,14 @@ dependencies = [
 
 [project.optional-dependencies]
 llm = ["anthropic==0.42.0"]
+# RAG vector knowledge base. sqlite-vec is small + needed by the test suite;
+# fastembed (ONNX, ~130MB model on first run) is only used when
+# NINTEL_EMBEDDER=fastembed, so it stays out of [dev]/CI.
+rag = ["sqlite-vec==0.1.6", "fastembed==0.3.6"]
 dev = [
     "pytest==8.3.4",
     "httpx==0.28.1",
+    "sqlite-vec==0.1.6",
 ]
 
 [project.scripts]

@@ -11,6 +11,10 @@ python-dotenv==1.0.1
 # Test + dev tooling
 pytest==8.3.4
 httpx==0.28.1
+# RAG vector store — small, also exercised by the test suite (hash embedder).
+sqlite-vec==0.1.6
 
 # Optional — only needed when NINTEL_LLM_ENABLED=true (live curation/classification).
 # anthropic==0.42.0
+# Optional — only needed when NINTEL_EMBEDDER=fastembed (local RAG embeddings).
+# fastembed==0.3.6

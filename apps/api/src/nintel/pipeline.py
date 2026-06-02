@@ -139,6 +139,30 @@ def _cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_kb(args: argparse.Namespace) -> int:
+    from .engine import rag
+
+    if args.kb_action == "reindex":
+        res = rag.reindex_background()
+        print(f"kb reindex: {res['added']} background chunks")
+    elif args.kb_action == "index-history":
+        from .api import repository
+
+        total = 0
+        for entry in repository.archive_index():
+            doc = repository.get_report(entry["id"])
+            if doc:
+                total += rag.index_items(doc.get("items", []))
+        print(f"kb index-history: indexed {total} items")
+    elif args.kb_action == "stats":
+        st = rag.stats()
+        print(f"kb stats: dim={st['dim']} collections={st['collections']}")
+    elif args.kb_action == "clear":
+        rag.clear(args.collection)
+        print(f"kb clear: {args.collection or 'all'}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="nintel", description="Network Intel engine CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -161,6 +185,13 @@ def main(argv: list[str] | None = None) -> int:
     p_render = sub.add_parser("render", help="render a report's email HTML to stdout")
     p_render.add_argument("--type", required=True, choices=["daily", "weekly"])
     p_render.set_defaults(func=_cmd_render)
+
+    p_kb = sub.add_parser("kb", help="manage the RAG knowledge base")
+    p_kb.add_argument(
+        "kb_action", choices=["reindex", "index-history", "stats", "clear"]
+    )
+    p_kb.add_argument("--collection", default=None, help="for clear: background|history")
+    p_kb.set_defaults(func=_cmd_kb)
 
     args = parser.parse_args(argv)
     return args.func(args)

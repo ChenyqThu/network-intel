@@ -77,6 +77,16 @@ class Settings:
     select_min_heat: int = 0            # noise floor for a NEW item to qualify
     select_max_items_daily: int = 12    # cap the selected pool
 
+    # RAG / vector knowledge base (WS5). Off by default; kb_enabled() also
+    # requires llm_enabled (retrieved text only matters if the LLM consumes it).
+    rag_enabled: bool = False
+    rag_classify: bool = False          # also inject background at classify tier
+    embedder: str = "fastembed"         # fastembed | hash
+    hash_embedder_dim: int = 64
+    kb_db_path: Path = API_ROOT / "data" / "kb.db"
+    fastembed_cache: str | None = None
+    knowledge_dir: Path = API_ROOT / "knowledge"
+
     # LLM (only used when llm_enabled)
     anthropic_api_key: str | None = None
     haiku_model: str = "claude-haiku-4-5-20251001"
@@ -128,6 +138,15 @@ def get_settings() -> Settings:
         resurface_cooldown_days=int(os.getenv("NINTEL_RESURFACE_COOLDOWN_DAYS", "3")),
         select_min_heat=int(os.getenv("NINTEL_SELECT_MIN_HEAT", "0")),
         select_max_items_daily=int(os.getenv("NINTEL_SELECT_MAX_ITEMS_DAILY", "12")),
+        rag_enabled=_env_bool("NINTEL_RAG_ENABLED", False),
+        rag_classify=_env_bool("NINTEL_RAG_CLASSIFY", False),
+        embedder=os.getenv("NINTEL_EMBEDDER", "fastembed").strip().lower(),
+        hash_embedder_dim=int(os.getenv("NINTEL_HASH_EMBEDDER_DIM", "64")),
+        kb_db_path=Path(os.getenv("NINTEL_KB_DB_PATH", str(data_dir / "kb.db"))).resolve(),
+        fastembed_cache=os.getenv("NINTEL_FASTEMBED_CACHE"),
+        knowledge_dir=Path(
+            os.getenv("NINTEL_KNOWLEDGE_DIR", str(API_ROOT / "knowledge"))
+        ).resolve(),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
         opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),

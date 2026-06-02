@@ -23,6 +23,12 @@ def _offline_env(tmp_path_factory: pytest.TempPathFactory):
     os.environ["NINTEL_REVIEW_MODE"] = "manual"
     os.environ["NINTEL_DATA_DIR"] = str(data_dir)
     os.environ["NINTEL_DB_PATH"] = str(data_dir / "test.db")
+    # RAG stays off by default; when a test enables it, use the deterministic
+    # hash embedder + an isolated kb.db so the vector path runs with no model
+    # download and no network.
+    os.environ["NINTEL_RAG_ENABLED"] = "false"
+    os.environ["NINTEL_EMBEDDER"] = "hash"
+    os.environ["NINTEL_KB_DB_PATH"] = str(data_dir / "kb.db")
 
     # Reset the cached settings so the env overrides take effect.
     from nintel.config import get_settings

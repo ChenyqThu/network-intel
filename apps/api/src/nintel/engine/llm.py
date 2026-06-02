@@ -82,6 +82,19 @@ def classify_item(item: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover -
 
     settings = get_settings()
     client = _client()
+    # Optional RAG background (default off at classify tier to save cost). Goes
+    # in the user turn, never the cached system prefix.
+    background = None
+    if settings.rag_classify:
+        from . import rag
+
+        if rag.kb_enabled():
+            hits = rag.retrieve(
+                f"{item.get('title', '')} {item.get('summary', '')}",
+                collection=rag.COLLECTION_BACKGROUND,
+                k=2,
+            )
+            background = rag.format_context(hits, budget_chars=1600) or None
     # Only the per-item payload varies — keep it out of the cached system prefix.
     user_payload = json.dumps(
         {
@@ -91,6 +104,7 @@ def classify_item(item: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover -
             "url": item.get("url"),
             "raw_summary": item.get("summary"),
             "metrics": item.get("metrics"),
+            "background": background,
         },
         ensure_ascii=False,
     )
@@ -119,8 +133,37 @@ def curate_report(
     client = _client()
     prompt_name = "curate_weekly.md" if report_type == "weekly" else "curate_daily.md"
 
+    # Optional RAG context (background facts + prior coverage for turning-point /
+    # "already covered" judgement). User-turn only, so the cached system prefix
+    # stays byte-stable.
+    context = None
+    from . import rag
+
+    if rag.kb_enabled():
+        topic = " ".join((it.get("title") or "") for it in items[:12])
+        bg = rag.retrieve(topic, collection=rag.COLLECTION_BACKGROUND, k=6)
+        prior = []
+        for it in items:
+            h = rag.retrieve(
+                f"{it.get('title', '')} {it.get('summary', '')}",
+                collection=rag.COLLECTION_HISTORY,
+                k=3,
+                filters={"subject": it.get("subject")},
+            )
+            if h:
+                prior.append({"item_id": it.get("id"), "prior": rag.summarize_hits(h)})
+        context = {
+            "background": rag.format_context(bg, budget_chars=6000),
+            "prior_coverage": prior,
+        }
+
     user_payload = json.dumps(
-        {"report_id": report_id, "report_type": report_type, "items": items},
+        {
+            "report_id": report_id,
+            "report_type": report_type,
+            "items": items,
+            "context": context,
+        },
         ensure_ascii=False,
     )
     resp = client.messages.create(

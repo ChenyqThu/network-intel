@@ -72,6 +72,13 @@ def publish(report_id: str, *, doc: dict[str, Any]) -> Path:
     _write_json(out, doc)
     _upsert_db(doc)
     _record_reported(doc)
+    # Index the just-published items into the RAG history collection so future
+    # reports can detect "already covered" / turning points. No-op unless RAG is
+    # enabled (default off), so tests and the offline path are unaffected.
+    from ..engine import rag
+
+    if rag.kb_enabled():  # pragma: no cover - requires RAG + LLM enabled
+        rag.index_items(doc.get("items", []))
     return out
 
 
