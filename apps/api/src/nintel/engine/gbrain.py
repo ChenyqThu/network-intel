@@ -200,6 +200,16 @@ def report_to_markdown(doc: dict[str, Any]) -> str:
         out.append(_strip_cites(lead["text"]))
         out.append("")
 
+    strat = doc.get("strategy")
+    if isinstance(strat, dict):
+        out.append(f"## 🎯 {strat.get('title', '市场策略洞察')}")
+        for para in strat.get("paras") or []:
+            if isinstance(para, (list, tuple)) and len(para) == 2:
+                out.append(f"**{para[0]}** {_strip_cites(para[1])}")
+        if strat.get("body"):
+            out.append(_strip_cites(strat["body"]))
+        out.append("")
+
     for sec in doc.get("sections", []):
         if sec.get("key") == "dashboard":
             continue
@@ -213,6 +223,13 @@ def report_to_markdown(doc: dict[str, Any]) -> str:
                 out.append(f"  - 研判: {_strip_cites(it['impact_note'])}")
             if it.get("url"):
                 out.append(f"  - 来源: {it['url']}")
+        out.append("")
+
+    store = doc.get("store") or []
+    if store:
+        out.append("## Store 动向")
+        for row in store:
+            out.append(f"- {row.get('product', '')} — {row.get('change', '')} (stock: {row.get('stock', '')})")
         out.append("")
 
     refs = doc.get("references") or []
@@ -229,6 +246,11 @@ def put_page(slug: str, content: str) -> Any:
 
 
 def index_report(doc: dict[str, Any]) -> Any:
-    """Push one published report into kos as a page (slug = <prefix>/<report_id>)."""
-    slug = f"{get_settings().kos_slug_prefix}/{doc['report_id']}"
+    """Push one published report into kos as a page (slug = <prefix>/<report_id>).
+
+    The slug is lowercased: kos stores page slugs lowercased, but its addTag step
+    matches the literal slug, so an uppercase id (e.g. ``2026-W22-weekly``) would
+    fail with "page not found".
+    """
+    slug = f"{get_settings().kos_slug_prefix}/{doc['report_id']}".lower()
     return put_page(slug, report_to_markdown(doc))

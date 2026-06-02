@@ -126,6 +126,13 @@ def test_index_report_calls_put_page(monkeypatch, kos_env):
     assert res["status"] == "created_or_updated"
 
 
+def test_index_report_lowercases_slug(monkeypatch, kos_env):
+    captured: dict = {}
+    monkeypatch.setattr(gbrain, "_mcp_call", lambda name, args: captured.update(args) or {"status": "ok"})
+    gbrain.index_report({**_sample_report(), "report_id": "2026-W22-weekly"})
+    assert captured["slug"] == "network-intel/2026-w22-weekly"  # uppercase W -> lowercase
+
+
 def test_gate_publish_auto_pushes_to_kos(monkeypatch, kos_env):
     monkeypatch.setenv("NINTEL_KOS_PUBLISH", "true")
     get_settings.cache_clear()
