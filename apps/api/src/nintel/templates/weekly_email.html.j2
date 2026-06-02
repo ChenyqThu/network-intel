@@ -1,0 +1,173 @@
+{% import '_macros.html.j2' as m %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>Network Intel · {{ report.date_range }} · 周报</title>
+<!--[if mso]><style>*{font-family:'Segoe UI',Arial,sans-serif !important;}</style><![endif]-->
+<style>
+  a{text-decoration:none;}
+  .hov:hover{opacity:.82;}
+  @media only screen and (max-width:620px){
+    .wrap{width:100% !important;}
+    .px{padding-left:18px !important;padding-right:18px !important;}
+    .stack{display:block !important;width:100% !important;}
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#F4F3EE;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#F4F3EE;font-size:1px;line-height:1px;">
+  {{ report.lead.strong or report.title }} — 含市场策略洞察与数据看板。每条结论均可一键溯源验证。
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F4F3EE;">
+<tr><td align="center" style="padding:30px 12px 40px;">
+
+  <table role="presentation" class="wrap" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px;max-width:620px;background:#FFFFFF;border:1px solid #E6E3DA;border-radius:14px;overflow:hidden;">
+
+    <tr><td style="height:4px;line-height:4px;font-size:4px;background:#0C6151;">&nbsp;</td></tr>
+
+    <!-- header -->
+    <tr><td class="px" style="padding:22px 34px 16px;border-bottom:1px solid #EFEEE7;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="vertical-align:middle;">
+          <span style="display:inline-block;width:11px;height:11px;border-radius:4px;background:#0C6151;vertical-align:-1px;"></span>
+          <span style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:18px;font-weight:800;letter-spacing:-.3px;color:#191B18;">&nbsp;Network <span style="color:#0C6151;">Intel</span></span>
+          <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:10px;font-weight:600;letter-spacing:.5px;color:#0C6151;background:#DCE9E4;padding:3px 7px;border-radius:4px;margin-left:8px;vertical-align:2px;">内部情报</span>
+        </td>
+        <td align="right" style="vertical-align:middle;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#878B81;">
+          周报 · <span style="color:#191B18;font-weight:600;">{{ report.date_range }}</span>
+        </td>
+      </tr></table>
+    </td></tr>
+
+    <!-- title -->
+    <tr><td class="px" style="padding:26px 34px 0;">
+      <div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:1.6px;color:#0C6151;text-transform:uppercase;">NETWORK INTEL · 深度周报</div>
+      <h1 style="margin:13px 0 0;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:30px;line-height:1.12;font-weight:800;color:#191B18;letter-spacing:-1px;">{{ report.title }}</h1>
+      <div style="margin-top:12px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#878B81;">覆盖 {{ report.date_range }} &nbsp;·&nbsp; report.json · {{ report.type }}</div>
+    </td></tr>
+
+    <!-- 🎯 strategy block (pinned) -->
+    {% if report.strategy %}
+    <tr><td class="px" style="padding:24px 34px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0C6151;border-radius:12px;overflow:hidden;">
+        <tr><td style="padding:20px 22px;">
+          <div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9FD3C5;margin-bottom:8px;">🎯 {{ report.strategy.title }}{% if report.strategy.period %} · {{ report.strategy.period }}{% endif %}</div>
+          {% if report.strategy.paras %}
+            {% for label, body in report.strategy.paras %}
+            <div style="margin-top:12px;">
+              <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:12px;font-weight:800;color:#DCE9E4;letter-spacing:.5px;">{{ label }}</div>
+              <div style="margin-top:4px;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:14px;line-height:1.7;color:#EAF3F0;">{{ body | cite_links(ref_index) }}</div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:15px;line-height:1.7;color:#EAF3F0;">{{ report.strategy.body | cite_links(ref_index) }}</div>
+          {% endif %}
+        </td></tr>
+      </table>
+    </td></tr>
+    {% endif %}
+
+    <!-- lead -->
+    <tr><td class="px" style="padding:24px 34px 0;">
+      <div style="border-top:2px solid #191B18;padding-top:20px;">
+        <div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#878B81;margin-bottom:12px;">本周导语 · <span style="color:#0C6151;">Opus 策展</span></div>
+        <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:17px;line-height:1.7;color:#191B18;font-weight:500;">
+          {{ report.lead.text | cite_links(ref_index) }}
+          {% if report.lead.strong %}<span style="display:block;margin-top:12px;font-weight:800;font-size:16px;color:#191B18;letter-spacing:-.3px;">{{ report.lead.strong }}</span>{% endif %}
+        </div>
+      </div>
+    </td></tr>
+
+    <!-- tally -->
+    {% if report.tally %}
+    <tr><td class="px" style="padding:18px 34px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="padding-right:7px;"><span style="display:inline-block;padding:5px 11px;border:1px solid #E6E3DA;border-radius:999px;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#54584F;">信号 {{ report.tally.signals }}</span></td>
+        <td style="padding-right:7px;"><span style="display:inline-block;padding:5px 11px;background:#F7ECEE;border:1px solid #ECCBD1;border-radius:999px;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#B23B4B;">威胁 {{ report.tally.threat }}</span></td>
+        <td style="padding-right:7px;"><span style="display:inline-block;padding:5px 11px;background:#E9F2EC;border:1px solid #C9E0D1;border-radius:999px;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#2E8259;">机会 {{ report.tally.opp }}</span></td>
+        <td style="padding-right:7px;"><span style="display:inline-block;padding:5px 11px;border:1px solid #E6E3DA;border-radius:999px;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#54584F;">中性 {{ report.tally.neutral }}</span></td>
+        <td><span style="display:inline-block;padding:5px 11px;background:#DCE9E4;border:1px solid #BFD8CF;border-radius:999px;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#0C6151;">官方源 {{ report.tally.official }}</span></td>
+      </tr></table>
+    </td></tr>
+    {% endif %}
+
+    <!-- sections -->
+    {% for sec in sections %}
+    {% if sec.meta.key == 'store' %}
+      {% if report.store %}
+      {{ m.section_header(loop.index, sec.meta.title, sec.meta.desc, report.store|length, SECTION_TONE.get('store')) }}
+      <tr><td class="px" style="padding:16px 34px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #E6E3DA;border-radius:10px;overflow:hidden;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;">
+          <tr style="background:#F7F6F1;">
+            <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#878B81;letter-spacing:.5px;">产品</td>
+            <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#878B81;">类别</td>
+            <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#878B81;">变化</td>
+            <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#878B81;">库存</td>
+          </tr>
+          {% for row in report.store %}
+          {% set dirc = {'up':'#2E8259','down':'#B23B4B','new':'#0C6151','flat':'#7C8079'} %}
+          {% set stockc = {'in':'#2E8259','low':'#8A6D1F','out':'#B23B4B'} %}
+          <tr style="border-top:1px solid #EFEEE7;">
+            <td style="padding:11px 14px;font-size:13px;font-weight:700;color:#191B18;">{{ row.product }}</td>
+            <td style="padding:11px 14px;font-size:12px;color:#54584F;">{{ row.cat or '' }}</td>
+            <td style="padding:11px 14px;font-size:12px;font-weight:700;color:{{ dirc.get(row.dir, '#54584F') }};">{{ row.change or '' }}</td>
+            <td style="padding:11px 14px;font-size:12px;font-weight:600;color:{{ stockc.get(row.stock, '#54584F') }};">{{ {'in':'有货','low':'紧张','out':'缺货'}.get(row.stock, row.stock) }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </td></tr>
+      {% endif %}
+    {% elif sec.meta.key == 'dashboard' %}
+      {% if report.dashboard %}
+      {{ m.section_header(loop.index, sec.meta.title, sec.meta.desc, none, SECTION_TONE.get('dashboard')) }}
+      <tr><td class="px" style="padding:16px 34px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td class="stack" style="width:33%;padding:6px;"><div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px;text-align:center;"><div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#0C6151;">{{ report.dashboard.signals }}</div><div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:11px;color:#878B81;">本周信号</div></div></td>
+            <td class="stack" style="width:33%;padding:6px;"><div style="background:#F7ECEE;border:1px solid #ECCBD1;border-radius:10px;padding:14px;text-align:center;"><div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#B23B4B;">{{ report.dashboard.threats }}</div><div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:11px;color:#878B81;">威胁</div></div></td>
+            <td class="stack" style="width:33%;padding:6px;"><div style="background:#E9F2EC;border:1px solid #C9E0D1;border-radius:10px;padding:14px;text-align:center;"><div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#2E8259;">{{ report.dashboard.opps }}</div><div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:11px;color:#878B81;">机会</div></div></td>
+          </tr>
+        </table>
+      </td></tr>
+      {% if report.dashboard.vs %}
+      <tr><td class="px" style="padding:8px 34px 0;">
+        <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px 16px;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;color:#54584F;">
+          <strong style="color:#191B18;">舆情对比</strong> · Omada <strong style="color:#0C6151;">{{ report.dashboard.vs.omada }}</strong> vs UniFi <strong style="color:#B23B4B;">{{ report.dashboard.vs.unifi }}</strong>
+        </div>
+      </td></tr>
+      {% endif %}
+      {% if report.dashboard.pains %}
+      <tr><td class="px" style="padding:8px 34px 0;">
+        <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px 16px;">
+          <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:12px;font-weight:800;color:#191B18;margin-bottom:8px;">竞品痛点 Top</div>
+          {% for p in report.dashboard.pains %}
+          <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;color:#54584F;padding:3px 0;">· {{ p.name }} <span style="color:#878B81;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;">({{ p.count }})</span></div>
+          {% endfor %}
+        </div>
+      </td></tr>
+      {% endif %}
+      {% endif %}
+    {% elif sec.entries %}
+      {{ m.section_header(loop.index, sec.meta.title, sec.meta.desc, sec.entries|length, SECTION_TONE.get(sec.meta.key, '#191B18')) }}
+      {% for item in sec.entries %}{{ m.intel_card(item) }}{% endfor %}
+    {% endif %}
+    {% endfor %}
+
+    {{ m.references_block(references) }}
+    {{ m.footer(report) }}
+
+  </table>
+
+  <div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#A8AC9F;padding:16px 12px 0;">本邮件由 report.json 渲染 · 每条结论均可一键溯源验证</div>
+
+</td></tr>
+</table>
+</body>
+</html>

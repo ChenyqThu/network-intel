@@ -1,0 +1,267 @@
+{
+  "report_id": "2026-W22-weekly",
+  "type": "weekly",
+  "date": "2026-05-31",
+  "date_range": "2026-05-25~05-31",
+  "generated_at": "2026-06-01T09:30:00-07:00",
+  "title": "2026 年第 22 周 · 周报",
+  "lead": {
+    "text": "本周 UniFi 低端发力（Express 7{{cite:4}} / Cloud Gateway Fiber{{cite:5}}）叠加高端降价（U7 Pro Max −$40{{cite:7}}），价格战意图明显；社区端 6GHz 漫游故障{{cite:8}}与订阅涨价{{cite:9}}持续制造我方拉新窗口。自家侧 EAP610-Outdoor 升级回滚仍需跟进{{cite:1}}。",
+    "strong": "低端围堵 + 高端降价，价格战全面铺开；自家固件稳定性需补。",
+    "cite_refs": [4, 5, 7, 8, 9, 1]
+  },
+  "strategy": {
+    "title": "市场策略洞察",
+    "period": "本周 · 2026 W22",
+    "paras": [
+      ["市场格局", "本周 UniFi 在 5G/WAN 冗余与一体化网关赛道集中发力——Express 7{{cite:4}} 与 Cloud Gateway Fiber{{cite:5}} 双线上新，反映其向「企业连续性 + 运营商场景」下沉的战略意图。"],
+      ["竞品意图", "同步对旗舰 AP U7 Pro Max 降价 $40{{cite:7}}，是以价格挤压中高端价位带；但社区对 6GHz 漫游稳定性{{cite:8}}与订阅涨价{{cite:9}}的不满，说明其体验与商业模式仍有缺口。"],
+      ["对 Omada 建议", "中期可在蜂窝备份 + 多运营商手动控制、以及「本地优先 / 无订阅」叙事上做差异化，承接 UniFi 未覆盖的可控与成本敏感需求；不必正面比拼 5G 速率。"]
+    ],
+    "body": "本周 UniFi 在 5G/WAN 冗余赛道集中发力{{cite:4}}{{cite:5}}，叠加高端降价{{cite:7}}，价格战意图明显；社区对漫游稳定性{{cite:8}}与订阅涨价{{cite:9}}的不满构成我方差异化窗口。",
+    "cite_refs": [4, 5, 7, 8, 9]
+  },
+  "tally": { "signals": 13, "threat": 4, "opp": 5, "neutral": 4, "official": 5 },
+  "sections": [
+    { "key": "omada_self", "title": "本周 Omada 自身舆情", "icon": "activity", "desc": "固件 bug / 功能请求 Top / 好评亮点 / 流失信号", "items": ["ws1", "ws2", "ws3"] },
+    { "key": "competitor", "title": "本周竞品动作盘点", "icon": "swords", "desc": "UniFi 新品 / 固件 / 定价 / 渠道", "items": ["w1", "w2", "w3", "w4"] },
+    { "key": "sentiment", "title": "竞品舆情与对比", "icon": "chat", "desc": "Omada vs UniFi 口碑对比 + UniFi 痛点 + 环比变化", "items": ["w5", "w6", "w7"] },
+    { "key": "store", "title": "Store 动向", "icon": "store", "desc": "价格 / 库存 / 上架变化", "items": [] },
+    { "key": "industry", "title": "行业风向", "icon": "factory", "desc": "趋势条目 + 一句话点评", "items": ["w8", "w9", "w10"] },
+    { "key": "dashboard", "title": "数据看板", "icon": "barChart", "desc": "信号量 / 各源贡献 / Omada vs UniFi 舆情 / 热度 Top", "items": [] }
+  ],
+  "items": [
+    {
+      "id": "ws1", "cite_id": 1, "subject": "omada_self", "source": "reddit",
+      "source_domain": "reddit.com/r/TPLink_Omada", "source_tier": "community",
+      "source_label": "Reddit · r/TPLink_Omada", "tier_label": "社区一手", "glyph": "reddit", "provenance": "A",
+      "title": "EAP610-Outdoor 固件升级回滚（本周持续反馈）",
+      "badges": ["固件bug"], "summary": "本周多名用户复现 EAP610-Outdoor 升级失败回滚问题，建议固件团队优先排查升级流程与管理端口依赖。",
+      "category": "bug", "signal_strength": "high", "omada_impact": "needs_fix",
+      "impact_note": "升级回滚为可复现问题，是本周自家侧最高优先的修复输入。",
+      "metrics": { "likes": 6, "comments": 9 },
+      "sentiment": "neu", "relevance": 0.82, "switch_intent": false,
+      "date": "2026-05-31", "url": "https://www.reddit.com/r/TPLink_Omada/comments/1trsrqo/eap610outdoor_firmware_update_fails_to_install/"
+    },
+    {
+      "id": "ws2", "cite_id": 2, "subject": "omada_self", "source": "reddit",
+      "source_domain": "reddit.com/r/TPLink_Omada", "source_tier": "community",
+      "source_label": "Reddit · r/TPLink_Omada", "tier_label": "社区一手", "glyph": "reddit", "provenance": "A",
+      "title": "社区高热呼吁 SG2218 增加 PoE 版本",
+      "badges": ["功能请求"], "summary": "Omada 对比图表帖评论区高赞请求 SG2218 交换机的 PoE 版本，可作为产品线规划输入。",
+      "category": "feature_request", "signal_strength": "high", "omada_impact": "feature_input",
+      "impact_note": "SG2218 PoE 版本是社区高热度请求（206 赞），建议纳入交换机产品线评估。",
+      "metrics": { "likes": 206, "comments": 44 },
+      "sentiment": "pos", "relevance": 0.9, "switch_intent": false,
+      "date": "2026-05-31", "url": "https://www.reddit.com/r/TPLink_Omada/comments/11854oq/tplink_omada_comparison_charts_feb_2023/"
+    },
+    {
+      "id": "ws3", "cite_id": 3, "subject": "omada_self", "source": "reddit",
+      "source_domain": "reddit.com/r/Omada_Networks", "source_tier": "community",
+      "source_label": "Reddit · r/Omada_Networks", "tier_label": "社区一手", "glyph": "reddit", "provenance": "A",
+      "title": "用户称赞 Omada 本地控制器无订阅、长期稳定",
+      "badges": ["好评"], "summary": "用户在长帖中肯定 Omada 本地控制器「一次授权、无云端订阅、长期稳定」，对比 UniFi 订阅政策更省心。",
+      "category": "praise", "signal_strength": "medium", "omada_impact": "strength_confirm",
+      "impact_note": "「本地优先 / 无订阅」是自发口碑优势，可强化为渠道与市场叙事。",
+      "metrics": { "likes": 98, "comments": 21 },
+      "sentiment": "pos", "relevance": 0.84, "switch_intent": false,
+      "date": "2026-05-30", "url": "https://www.reddit.com/r/Omada_Networks/"
+    },
+    {
+      "id": "w1", "cite_id": 4, "subject": "competitor", "source": "unifi_store",
+      "source_domain": "store.ui.com", "source_tier": "official",
+      "source_label": "UniFi Store · Listing", "tier_label": "一手官方", "glyph": "unifi", "provenance": "B",
+      "title": "UniFi Express 7 上线 — $199 Wi-Fi 7 一体网关",
+      "badges": ["新品", "竞品"], "summary": "Ubiquiti 上架 Express 7：BE9300 Wi-Fi 7、内置 UniFi OS，定位家庭与小微办公的一体化网关，售价 $199。",
+      "category": "new_product", "signal_strength": "high", "omada_impact": "threat",
+      "impact_note": "直接对标 Omada 入门级网关 + AP 组合，价格更激进、安装更傻瓜化。建议评估入门 SKU 的捆绑定价。",
+      "metrics": { "note": "new listing" },
+      "sentiment": null, "relevance": null, "switch_intent": null,
+      "date": "2026-05-30", "url": "https://store.ui.com/us/en/products/unifi-express-7"
+    },
+    {
+      "id": "w2", "cite_id": 5, "subject": "competitor", "source": "unifi_product",
+      "source_domain": "store.ui.com", "source_tier": "official",
+      "source_label": "UniFi Store · Product", "tier_label": "一手官方", "glyph": "unifi", "provenance": "B",
+      "title": "UniFi 推出 Cloud Gateway Fiber（10G PON）",
+      "badges": ["新品", "竞品"], "summary": "面向 FTTH 部署的 10G PON 网关，集成 ONU 与路由，瞄准运营商与多住户场景，$279。",
+      "category": "new_product", "signal_strength": "high", "omada_impact": "threat",
+      "impact_note": "切入我方尚薄弱的 PON / 运营商网关市场。需评估 Omada 在 GPON 网关侧的产品缺口。",
+      "metrics": { "note": "new listing" },
+      "sentiment": null, "relevance": null, "switch_intent": null,
+      "date": "2026-05-28", "url": "https://store.ui.com/us/en/products/ucg-fiber"
+    },
+    {
+      "id": "w3", "cite_id": 6, "subject": "competitor", "source": "blog",
+      "source_domain": "blog.ui.com", "source_tier": "official",
+      "source_label": "UniFi 官方 · Blog", "tier_label": "一手官方", "glyph": "unifi", "provenance": "B",
+      "title": "UniFi Network 10.5 GA — DPI 重构与 IPv6 全面默认",
+      "badges": ["固件", "竞品"], "summary": "官方博客发布 Network 10.5 正式版：重写的 DPI 引擎、IPv6 默认开启、Zone-Based Firewall GA。",
+      "category": "firmware", "signal_strength": "medium", "omada_impact": "neutral",
+      "impact_note": "Zone-Based Firewall 转正补齐了企业侧短板，与 Omada SDN 的防火墙能力差距缩小，需跟进路线图对齐。",
+      "metrics": { "note": "官方博客发布" },
+      "sentiment": null, "relevance": null, "switch_intent": null,
+      "date": "2026-05-28", "url": "https://blog.ui.com/article/introducing-unifi-network-10-5"
+    },
+    {
+      "id": "w4", "cite_id": 7, "subject": "competitor", "source": "unifi_store",
+      "source_domain": "store.ui.com", "source_tier": "official",
+      "source_label": "UniFi Store · Pricing", "tier_label": "一手官方", "glyph": "unifi", "provenance": "B",
+      "title": "U7 Pro Max 降价 $40，多区域同步调整",
+      "badges": ["定价", "竞品"], "summary": "旗舰 AP U7 Pro Max 从 $279 下调至 $239，美 / 欧 / 澳三区同步。Store 变动记录显示为长期价。",
+      "category": "pricing", "signal_strength": "high", "omada_impact": "threat",
+      "impact_note": "高端 AP 价格下探挤压 EAP772 价位带。渠道侧需关注分销商报价跟随情况。",
+      "metrics": { "note": "-$40" },
+      "sentiment": null, "relevance": null, "switch_intent": null,
+      "date": "2026-05-30", "url": "https://store.ui.com/us/en/products/u7-pro-max"
+    },
+    {
+      "id": "w5", "cite_id": 8, "subject": "competitor", "source": "unifi_community",
+      "source_domain": "community.ui.com", "source_tier": "official",
+      "source_label": "UniFi 社区 · Community", "tier_label": "官方平台", "glyph": "unifi", "provenance": "B",
+      "title": "大量用户报告 U7 系列 6GHz 漫游掉线",
+      "badges": ["竞品舆情"], "summary": "community.ui.com 一周内多个高热帖反映 10.4 固件后 6GHz 漫游不稳、客户端粘滞，官方尚未给出修复时间。",
+      "category": "pain_point", "signal_strength": "high", "omada_impact": "opportunity",
+      "impact_note": "竞品稳定性口碑受损窗口。我方应确保 WiFi7 漫游测试数据可公开，并在论坛温和引导。",
+      "metrics": { "comments": 213 },
+      "sentiment": "neg", "relevance": 0.88, "switch_intent": false,
+      "date": "2026-05-29", "url": "https://community.ui.com/questions/u7-6ghz-roaming-drops/6a3d1f20-0c4e-4b7a-9b2e-2f1a8c7d5e90"
+    },
+    {
+      "id": "w6", "cite_id": 9, "subject": "competitor", "source": "reddit",
+      "source_domain": "reddit.com/r/Ubiquiti", "source_tier": "community",
+      "source_label": "Reddit · r/Ubiquiti", "tier_label": "社区二手", "glyph": "reddit", "provenance": "A",
+      "title": "「从 UniFi 换到 Omada 三个月体验」",
+      "badges": ["舆情"], "summary": "r/Ubiquiti 高赞长帖：用户因 UniFi 订阅与云端策略涨价转投 Omada，硬件满意但抱怨手机 App 体验与 OTA 速度。",
+      "category": "sentiment", "signal_strength": "high", "omada_impact": "opportunity",
+      "impact_note": "UniFi 订阅涨价是我方拉新窗口期。痛点集中在 App 体验——应作为下季度 App 迭代的输入。",
+      "metrics": { "likes": 382, "comments": 147 },
+      "sentiment": "pos", "relevance": 0.92, "switch_intent": true,
+      "date": "2026-05-29", "url": "https://www.reddit.com/r/Ubiquiti/comments/1tr8x2k/three_months_after_switching_from_unifi_to_omada/"
+    },
+    {
+      "id": "w7", "cite_id": 10, "subject": "competitor", "source": "reddit",
+      "source_domain": "reddit.com/r/Ubiquiti", "source_tier": "community",
+      "source_label": "Reddit · r/Ubiquiti", "tier_label": "社区二手", "glyph": "reddit", "provenance": "A",
+      "title": "「UniFi 的多站点管理对 MSP 还是太弱」",
+      "badges": ["舆情"], "summary": "MSP 用户吐槽 UniFi 缺乏成熟的多租户与计费，被迫自建脚本；评论区点名 Omada PRO 的白标多租户。",
+      "category": "sentiment", "signal_strength": "medium", "omada_impact": "opportunity",
+      "impact_note": "Omada PRO 的 MSP 定位获自发认可，可强化 MSP 渠道叙事与白标卖点。",
+      "metrics": { "likes": 201, "comments": 64 },
+      "sentiment": "neg", "relevance": 0.8, "switch_intent": false,
+      "date": "2026-05-26", "url": "https://www.reddit.com/r/Ubiquiti/comments/1tp2m9c/unifi_multisite_management_still_too_weak_for_msp/"
+    },
+    {
+      "id": "w8", "cite_id": 11, "subject": "industry", "source": "reddit",
+      "source_domain": "reddit.com/r/networking", "source_tier": "community",
+      "source_label": "Reddit · r/networking", "tier_label": "社区二手", "glyph": "reddit", "provenance": "A",
+      "title": "r/networking：「中小企业放弃订阅制控制器的趋势」",
+      "badges": ["行业"], "summary": "讨论帖汇总多家 SMB 因 SaaS 网络管理年费上涨回归本地 / 一次性授权方案，UniFi 与 Omada 同被点名为替代选项。",
+      "category": "industry_trend", "signal_strength": "medium", "omada_impact": "opportunity",
+      "impact_note": "行业级顺风——「去订阅化」叙事利好我方授权模式，值得做成内容。",
+      "metrics": { "likes": 156, "comments": 89 },
+      "sentiment": "pos", "relevance": 0.7, "switch_intent": false,
+      "date": "2026-05-29", "url": "https://www.reddit.com/r/networking/comments/1tr5d8q/trend_smbs_dropping_subscription_controllers/"
+    },
+    {
+      "id": "w9", "cite_id": 12, "subject": "industry", "source": "rss",
+      "source_domain": "wi-fi.org", "source_tier": "community",
+      "source_label": "RSS · Wi-Fi Alliance", "tier_label": "行业来源", "glyph": "rss", "provenance": "C",
+      "title": "Wi-Fi 8（802.11bn）首批草案聚焦确定性时延",
+      "badges": ["行业"], "summary": "IEEE 公布 Wi-Fi 8 早期方向：不再堆速率，转向可靠性与确定性低时延（UHR），面向工业与 AR/VR。",
+      "category": "industry_trend", "signal_strength": "low", "omada_impact": "neutral",
+      "impact_note": null,
+      "metrics": { "note": "行业草案" },
+      "sentiment": null, "relevance": null, "switch_intent": null,
+      "date": "2026-05-28", "url": "https://www.wi-fi.org/news-events/newsroom"
+    },
+    {
+      "id": "w10", "cite_id": 13, "subject": "industry", "source": "youtube",
+      "source_domain": "youtube.com", "source_tier": "community",
+      "source_label": "YouTube · Crosstalk Solutions", "tier_label": "社区二手", "glyph": "youtube", "provenance": "A",
+      "title": "「2026 SMB 网络该选谁」UniFi / Omada / Aruba 横评",
+      "badges": ["竞品", "行业"], "summary": "知名 KOL 横评三家，认为 Omada 在纯本地部署与一次性授权上对预算敏感客户更友好。",
+      "category": "industry_trend", "signal_strength": "medium", "omada_impact": "opportunity",
+      "impact_note": "第三方背书强化了我方「无订阅、本地优先」卖点，可用于渠道与市场素材。",
+      "metrics": { "views": 48200 },
+      "sentiment": "pos", "relevance": 0.75, "switch_intent": false,
+      "date": "2026-05-30", "url": "https://www.youtube.com/@CrosstalkSolutions"
+    }
+  ],
+  "references": [
+    { "cite_id": 1, "title": "EAP610-Outdoor 固件升级回滚（本周持续反馈）", "source_domain": "reddit.com/r/TPLink_Omada", "source_tier": "community", "tier_label": "社区一手", "date": "2026-05-31", "url": "https://www.reddit.com/r/TPLink_Omada/comments/1trsrqo/eap610outdoor_firmware_update_fails_to_install/" },
+    { "cite_id": 2, "title": "社区高热呼吁 SG2218 增加 PoE 版本", "source_domain": "reddit.com/r/TPLink_Omada", "source_tier": "community", "tier_label": "社区一手", "date": "2026-05-31", "url": "https://www.reddit.com/r/TPLink_Omada/comments/11854oq/tplink_omada_comparison_charts_feb_2023/" },
+    { "cite_id": 3, "title": "用户称赞 Omada 本地控制器无订阅、长期稳定", "source_domain": "reddit.com/r/Omada_Networks", "source_tier": "community", "tier_label": "社区一手", "date": "2026-05-30", "url": "https://www.reddit.com/r/Omada_Networks/" },
+    { "cite_id": 4, "title": "UniFi Express 7 上线 — $199 Wi-Fi 7 一体网关", "source_domain": "store.ui.com", "source_tier": "official", "tier_label": "一手官方", "date": "2026-05-30", "url": "https://store.ui.com/us/en/products/unifi-express-7" },
+    { "cite_id": 5, "title": "UniFi 推出 Cloud Gateway Fiber（10G PON）", "source_domain": "store.ui.com", "source_tier": "official", "tier_label": "一手官方", "date": "2026-05-28", "url": "https://store.ui.com/us/en/products/ucg-fiber" },
+    { "cite_id": 6, "title": "UniFi Network 10.5 GA — DPI 重构与 IPv6 全面默认", "source_domain": "blog.ui.com", "source_tier": "official", "tier_label": "一手官方", "date": "2026-05-28", "url": "https://blog.ui.com/article/introducing-unifi-network-10-5" },
+    { "cite_id": 7, "title": "U7 Pro Max 降价 $40，多区域同步调整", "source_domain": "store.ui.com", "source_tier": "official", "tier_label": "一手官方", "date": "2026-05-30", "url": "https://store.ui.com/us/en/products/u7-pro-max" },
+    { "cite_id": 8, "title": "大量用户报告 U7 系列 6GHz 漫游掉线", "source_domain": "community.ui.com", "source_tier": "official", "tier_label": "官方平台", "date": "2026-05-29", "url": "https://community.ui.com/questions/u7-6ghz-roaming-drops/6a3d1f20-0c4e-4b7a-9b2e-2f1a8c7d5e90" },
+    { "cite_id": 9, "title": "三个月后：从 UniFi 换到 Omada 体验", "source_domain": "reddit.com/r/Ubiquiti", "source_tier": "community", "tier_label": "社区二手", "date": "2026-05-29", "url": "https://www.reddit.com/r/Ubiquiti/comments/1tr8x2k/three_months_after_switching_from_unifi_to_omada/" },
+    { "cite_id": 10, "title": "UniFi 的多站点管理对 MSP 还是太弱", "source_domain": "reddit.com/r/Ubiquiti", "source_tier": "community", "tier_label": "社区二手", "date": "2026-05-26", "url": "https://www.reddit.com/r/Ubiquiti/comments/1tp2m9c/unifi_multisite_management_still_too_weak_for_msp/" },
+    { "cite_id": 11, "title": "中小企业放弃订阅制控制器的趋势", "source_domain": "reddit.com/r/networking", "source_tier": "community", "tier_label": "社区二手", "date": "2026-05-29", "url": "https://www.reddit.com/r/networking/comments/1tr5d8q/trend_smbs_dropping_subscription_controllers/" },
+    { "cite_id": 12, "title": "Wi-Fi 8（802.11bn）首批草案聚焦确定性时延", "source_domain": "wi-fi.org", "source_tier": "community", "tier_label": "行业来源", "date": "2026-05-28", "url": "https://www.wi-fi.org/news-events/newsroom" },
+    { "cite_id": 13, "title": "「2026 SMB 网络该选谁」UniFi / Omada / Aruba 横评", "source_domain": "youtube.com", "source_tier": "community", "tier_label": "社区二手", "date": "2026-05-30", "url": "https://www.youtube.com/@CrosstalkSolutions" }
+  ],
+  "store": [
+    { "product": "U7 Pro Max", "cat": "AP · Wi-Fi 7", "from": 279, "to": 239, "change": "-$40", "dir": "down", "stock": "in" },
+    { "product": "Cloud Gateway Fiber", "cat": "Gateway · 10G PON", "from": null, "to": 279, "change": "新上架", "dir": "new", "stock": "in" },
+    { "product": "UniFi Express 7", "cat": "Gateway · BE9300", "from": null, "to": 199, "change": "新上架", "dir": "new", "stock": "low" },
+    { "product": "U6+", "cat": "AP · Wi-Fi 6", "from": 99, "to": 99, "change": "缺货", "dir": "flat", "stock": "out" },
+    { "product": "USW Pro Max 24 PoE", "cat": "Switch", "from": 649, "to": 599, "change": "-$50", "dir": "down", "stock": "in" }
+  ],
+  "stats": {
+    "total_items": 13,
+    "by_source": { "unifi_store": 2, "unifi_product": 1, "blog": 1, "unifi_community": 1, "reddit": 6, "rss": 1, "youtube": 1 },
+    "by_impact": { "threat": 3, "opportunity": 5, "neutral": 2, "needs_fix": 1, "feature_input": 1, "strength_confirm": 1 },
+    "top_hot": [
+      { "id": "w6", "title": "从 UniFi 换到 Omada 三个月体验", "score": 529 },
+      { "id": "w7", "title": "UniFi 多站点管理对 MSP 太弱", "score": 265 },
+      { "id": "w8", "title": "中小企业放弃订阅制控制器的趋势", "score": 245 },
+      { "id": "w5", "title": "U7 系列 6GHz 漫游掉线", "score": 213 },
+      { "id": "w10", "title": "2026 SMB 网络横评", "score": 48200 }
+    ]
+  },
+  "dashboard": {
+    "signals": 13,
+    "signalsDelta": 2,
+    "threats": 3,
+    "opps": 5,
+    "neutral": 2,
+    "newCompetitor": 2,
+    "newCompetitorDelta": 1,
+    "avgHeat": 118,
+    "avgHeatDelta": -8,
+    "sources": [
+      { "key": "unifi", "label": "UniFi 官方源", "count": 5 },
+      { "key": "reddit", "label": "Reddit", "count": 6 },
+      { "key": "youtube", "label": "YouTube", "count": 1 },
+      { "key": "rss", "label": "RSS / 行业", "count": 1 }
+    ],
+    "sentimentTrend": [
+      { "wk": "W15", "omada": 54, "unifi": 62 },
+      { "wk": "W16", "omada": 55, "unifi": 60 },
+      { "wk": "W17", "omada": 57, "unifi": 61 },
+      { "wk": "W18", "omada": 58, "unifi": 56 },
+      { "wk": "W19", "omada": 60, "unifi": 53 },
+      { "wk": "W20", "omada": 61, "unifi": 51 },
+      { "wk": "W21", "omada": 63, "unifi": 50 },
+      { "wk": "W22", "omada": 66, "unifi": 47 }
+    ],
+    "vs": { "omada": 66, "unifi": 47 },
+    "pains": [
+      { "name": "6GHz 漫游 / 粘滞", "count": 213, "of": 213 },
+      { "name": "订阅 & 云端涨价", "count": 168, "of": 213 },
+      { "name": "手机 App 体验", "count": 141, "of": 213 },
+      { "name": "多租户 / MSP 能力弱", "count": 96, "of": 213 },
+      { "name": "旗舰 AP 信号覆盖", "count": 80, "of": 213 }
+    ],
+    "topHeat": [
+      { "id": "w6", "v": 529 },
+      { "id": "w7", "v": 265 },
+      { "id": "w8", "v": 245 },
+      { "id": "w5", "v": 213 },
+      { "id": "w10", "v": 48200, "fmt": "views" }
+    ]
+  }
+}

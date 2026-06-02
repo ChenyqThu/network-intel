@@ -1,0 +1,141 @@
+{
+  "report_id": "2026-06-01-daily",
+  "type": "daily",
+  "date": "2026-06-01",
+  "date_range": "2026-06-01",
+  "generated_at": "2026-06-01T09:30:00-07:00",
+  "title": "2026 年 6 月 1 日 · 日报",
+  "lead": {
+    "text": "自家侧 Omada EAP610-Outdoor 固件升级回滚被多名用户复现{{cite:1}}，社区高热呼吁 SG2218 增加 PoE 版本{{cite:2}}；竞品侧 UniFi OS 全系升 5.1.15 RC{{cite:3}}、5G Backup 正式发布{{cite:4}}，社区 5G 选网体验成新痛点{{cite:5}}。",
+    "strong": "自家两记产品输入，竞品两记节奏施压。",
+    "cite_refs": [1, 2, 3, 4, 5]
+  },
+  "strategy": null,
+  "tally": { "signals": 8, "threat": 2, "opp": 2, "neutral": 2, "official": 3 },
+  "sections": [
+    { "key": "omada_self", "title": "Omada 自身舆情", "icon": "activity", "desc": "r/TPLink_Omada / r/Omada_Networks · 固件 bug / 功能请求 / 好评", "items": ["d1", "d2"] },
+    { "key": "competitor", "title": "竞品动态", "icon": "swords", "desc": "UniFi 官方新品 / 固件 / 发布动作", "items": ["d3", "d4"] },
+    { "key": "sentiment", "title": "竞品舆情与对比", "icon": "chat", "desc": "UniFi 社区痛点 + r/Ubiquiti · 对 Omada 的差异化机会", "items": ["d5", "d6", "d7"] },
+    { "key": "industry", "title": "行业要闻", "icon": "factory", "desc": "KOL / 媒体 · 生态与内容势能", "items": ["d8"] }
+  ],
+  "items": [
+    {
+      "id": "d1", "cite_id": 1, "subject": "omada_self", "source": "reddit",
+      "source_domain": "reddit.com/r/TPLink_Omada", "source_tier": "community",
+      "source_label": "Reddit · r/TPLink_Omada", "tier_label": "社区一手", "glyph": "reddit", "provenance": "A",
+      "title": "EAP610-Outdoor firmware update fails to install",
+      "badges": ["固件bug"], "summary": "用户报告 EAP610-Outdoor 固件升级失败，升级过程显示 UPGRADING 后自动回滚到旧版；社区反馈部分用户成功升到 1.6.7，可能与管理端口配置有关。",
+      "category": "bug", "signal_strength": "high", "omada_impact": "needs_fix",
+      "impact_note": "EAP610-Outdoor 固件升级回滚是可复现问题，建议转固件团队核查升级流程与管理端口依赖。",
+      "metrics": { "likes": 6, "comments": 9 },
+      "sentiment": "neu", "relevance": 0.82, "switch_intent": false,
+      "date": "2026-05-31", "url": "https://www.reddit.com/r/TPLink_Omada/comments/1trsrqo/eap610outdoor_firmware_update_fails_to_install/"
+    },
+    {
+      "id": "d2", "cite_id": 2, "subject": "omada_self", "source": "reddit",
+      "source_domain": "reddit.com/r/TPLink_Omada", "source_tier": "community",
+      "source_label": "Reddit · r/TPLink_Omada", "tier_label": "社区一手", "glyph": "reddit", "provenance": "A",
+      "title": "Omada comparison charts — 社区要求 SG2218 PoE 版",
+      "badges": ["功能请求"], "summary": "用户维护的 Omada 产品对比图表资源（高赞高讨论），评论区用户明确希望增加 SG2218 交换机的 PoE 版本。",
+      "category": "feature_request", "signal_strength": "high", "omada_impact": "feature_input",
+      "impact_note": "SG2218 PoE 版本是社区高热度请求（206 赞），可作产品线规划输入。",
+      "metrics": { "likes": 206, "comments": 44 },
+      "sentiment": "pos", "relevance": 0.9, "switch_intent": false,
+      "date": "2026-05-31", "url": "https://www.reddit.com/r/TPLink_Omada/comments/11854oq/tplink_omada_comparison_charts_feb_2023/"
+    },
+    {
+      "id": "d3", "cite_id": 3, "subject": "competitor", "source": "unifi_release",
+      "source_domain": "community.ui.com", "source_tier": "official",
+      "source_label": "UniFi 官方 · Release", "tier_label": "一手官方", "glyph": "unifi", "provenance": "B",
+      "title": "UniFi OS — Express 7　v5.1.15", "stage": "RC",
+      "badges": ["新品", "竞品"], "summary": "UniFi Express 7 跟进 UniFi OS 5.1.15 RC，核心系统栈更新。Express 系列是 UniFi 主打的一体化入门网关。",
+      "category": "new_product", "signal_strength": "high", "omada_impact": "threat",
+      "impact_note": "Express 7 是 UniFi 入门一体网关旗舰，固件迭代节奏直接对标 Omada 入门线，需关注其功能补齐速度。",
+      "metrics": { "views": 376, "comments": 3 },
+      "sentiment": null, "relevance": null, "switch_intent": null,
+      "date": "2026-06-01", "url": "https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/84641421-6507-48af-914f-c0cb5f704c76"
+    },
+    {
+      "id": "d4", "cite_id": 4, "subject": "competitor", "source": "blog",
+      "source_domain": "blog.ui.com", "source_tier": "official",
+      "source_label": "UniFi 官方 · Blog", "tier_label": "一手官方", "glyph": "unifi", "provenance": "B",
+      "title": "Introducing UniFi 5G Backup",
+      "badges": ["新品", "竞品"], "summary": "UniFi 推出 5G 备份方案，PoE 即插，为网关提供 5G failover 连接，补齐 WAN 冗余短板。",
+      "category": "new_product", "signal_strength": "high", "omada_impact": "threat",
+      "impact_note": "5G Backup 直接补齐 UniFi 在 WAN 冗余/断网备份上的短板，Omada 网关线在企业连续性场景需对标。",
+      "metrics": { "note": "官方博客发布" },
+      "sentiment": null, "relevance": null, "switch_intent": null,
+      "date": "2026-05-21", "url": "https://blog.ui.com/article/introducing-unifi-5g-backup"
+    },
+    {
+      "id": "d5", "cite_id": 5, "subject": "competitor", "source": "unifi_community",
+      "source_domain": "community.ui.com", "source_tier": "official",
+      "source_label": "UniFi 社区 · Community", "tier_label": "官方平台", "glyph": "unifi", "provenance": "B",
+      "title": "U5G — manual carrier select / override badly needed!",
+      "badges": ["竞品舆情"], "summary": "用户强烈要求 UniFi 5G 设备增加手动运营商选择/覆盖功能，吐槽当前自动选网在多运营商环境下不可控。",
+      "category": "pain_point", "signal_strength": "medium", "omada_impact": "opportunity",
+      "impact_note": "UniFi 5G 选网体验是真实痛点；Omada 若在 5G/蜂窝备份方案中提供手动运营商控制，可作为差异化卖点。",
+      "metrics": { "views": 2 },
+      "sentiment": "neg", "relevance": 0.86, "switch_intent": false,
+      "date": "2026-06-01", "url": "https://community.ui.com/questions/U5G-manual-carrier-select-override-badly-needed/eb165625-81e2-46b9-8dac-01d7e8339e99"
+    },
+    {
+      "id": "d6", "cite_id": 6, "subject": "competitor", "source": "reddit",
+      "source_domain": "reddit.com/r/Ubiquiti", "source_tier": "community",
+      "source_label": "Reddit · r/Ubiquiti", "tier_label": "社区二手", "glyph": "reddit", "provenance": "A",
+      "title": "Overall impressed, U7 Pro XG is hot garbage",
+      "badges": ["舆情"], "summary": "用户升级 10Gb 网络后对 Ubiquiti 整体满意，但抓出 U7 Pro XG AP 信号覆盖极差，换到 E7 才解决。高热度讨论（152 赞 / 80 评）。",
+      "category": "sentiment", "signal_strength": "high", "omada_impact": "opportunity",
+      "impact_note": "UniFi 旗舰 AP 信号表现与定价不匹配是反复出现的舆情；Omada 高端 AP 可在「覆盖一致性」上做文章。",
+      "metrics": { "likes": 152, "comments": 80 },
+      "sentiment": "neg", "relevance": 0.78, "switch_intent": false,
+      "date": "2026-05-31", "url": "https://www.reddit.com/r/Ubiquiti/comments/1ts70er/overall_impressed_u7_pro_xg_is_hot_garbage/"
+    },
+    {
+      "id": "d7", "cite_id": 7, "subject": "competitor", "source": "reddit",
+      "source_domain": "reddit.com/r/Ubiquiti", "source_tier": "community",
+      "source_label": "Reddit · r/Ubiquiti", "tier_label": "社区二手", "glyph": "reddit", "provenance": "A",
+      "title": "Got tired of their slow internet so I upgraded it",
+      "badges": ["舆情", "竞品"], "summary": "用户在酒店把 Aruba 设备换成 Ubiquiti 方案，网速从 5Mbps 提升到 100+Mbps。高热度（553 赞 / 82 评）。",
+      "category": "sentiment", "signal_strength": "medium", "omada_impact": "neutral",
+      "impact_note": "Aruba → Ubiquiti 的迁移案例；反映 SMB 市场对性价比方案的持续需求，Omada 同样是 Aruba Instant On 的替代选项，可关注该类换机场景。",
+      "metrics": { "likes": 553, "comments": 82 },
+      "sentiment": "pos", "relevance": 0.71, "switch_intent": true,
+      "date": "2026-05-31", "url": "https://www.reddit.com/r/Ubiquiti/comments/1trzyy3/got_tired_of_their_slow_internet_so_i_upgraded_it/"
+    },
+    {
+      "id": "d8", "cite_id": 8, "subject": "industry", "source": "youtube",
+      "source_domain": "youtube.com", "source_tier": "community",
+      "source_label": "YouTube · Unified IT", "tier_label": "社区二手", "glyph": "youtube", "provenance": "A",
+      "title": "UniFi 网络架构与基础知识系列",
+      "badges": ["行业"], "summary": "KOL 频道系统介绍 UniFi 网络架构，高播放高认可（7083 观看 / 468 赞），反映 UniFi 生态的内容营销势能。",
+      "category": "industry", "signal_strength": "low", "omada_impact": "neutral",
+      "impact_note": "UniFi 的 KOL/社区内容生态是其品牌护城河，Omada 可参考其教程化内容运营。",
+      "metrics": { "views": 7083, "likes": 468 },
+      "sentiment": "pos", "relevance": 0.6, "switch_intent": false,
+      "date": "2026-05-31", "url": "https://www.youtube.com/watch?v=SDcPaKXC_u8"
+    }
+  ],
+  "references": [
+    { "cite_id": 1, "title": "EAP610-Outdoor firmware update fails to install", "source_domain": "reddit.com/r/TPLink_Omada", "source_tier": "community", "tier_label": "社区一手", "date": "2026-05-31", "url": "https://www.reddit.com/r/TPLink_Omada/comments/1trsrqo/eap610outdoor_firmware_update_fails_to_install/" },
+    { "cite_id": 2, "title": "Omada comparison charts — 社区要求 SG2218 PoE 版", "source_domain": "reddit.com/r/TPLink_Omada", "source_tier": "community", "tier_label": "社区一手", "date": "2026-05-31", "url": "https://www.reddit.com/r/TPLink_Omada/comments/11854oq/tplink_omada_comparison_charts_feb_2023/" },
+    { "cite_id": 3, "title": "UniFi OS - Express 7 v5.1.15 (RC)", "source_domain": "community.ui.com", "source_tier": "official", "tier_label": "一手官方", "date": "2026-06-01", "url": "https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/84641421-6507-48af-914f-c0cb5f704c76" },
+    { "cite_id": 4, "title": "Introducing UniFi 5G Backup", "source_domain": "blog.ui.com", "source_tier": "official", "tier_label": "一手官方", "date": "2026-05-21", "url": "https://blog.ui.com/article/introducing-unifi-5g-backup" },
+    { "cite_id": 5, "title": "U5G - manual carrier select / override badly needed!", "source_domain": "community.ui.com", "source_tier": "official", "tier_label": "官方平台", "date": "2026-06-01", "url": "https://community.ui.com/questions/U5G-manual-carrier-select-override-badly-needed/eb165625-81e2-46b9-8dac-01d7e8339e99" },
+    { "cite_id": 6, "title": "Overall impressed, U7 Pro XG is hot garbage", "source_domain": "reddit.com/r/Ubiquiti", "source_tier": "community", "tier_label": "社区二手", "date": "2026-05-31", "url": "https://www.reddit.com/r/Ubiquiti/comments/1ts70er/overall_impressed_u7_pro_xg_is_hot_garbage/" },
+    { "cite_id": 7, "title": "Got tired of their slow internet so I upgraded it (Aruba → Ubiquiti)", "source_domain": "reddit.com/r/Ubiquiti", "source_tier": "community", "tier_label": "社区二手", "date": "2026-05-31", "url": "https://www.reddit.com/r/Ubiquiti/comments/1trzyy3/got_tired_of_their_slow_internet_so_i_upgraded_it/" },
+    { "cite_id": 8, "title": "UniFi 网络架构与基础知识（Unified IT）", "source_domain": "youtube.com", "source_tier": "community", "tier_label": "社区二手", "date": "2026-05-31", "url": "https://www.youtube.com/watch?v=SDcPaKXC_u8" }
+  ],
+  "store": [],
+  "stats": {
+    "total_items": 8,
+    "by_source": { "reddit": 4, "unifi_release": 1, "blog": 1, "unifi_community": 1, "youtube": 1 },
+    "by_impact": { "threat": 2, "opportunity": 2, "neutral": 2, "needs_fix": 1, "feature_input": 1 },
+    "top_hot": [
+      { "id": "d7", "title": "Got tired of their slow internet so I upgraded it", "score": 553 },
+      { "id": "d2", "title": "Omada comparison charts — SG2218 PoE", "score": 206 },
+      { "id": "d6", "title": "Overall impressed, U7 Pro XG is hot garbage", "score": 152 }
+    ]
+  },
+  "dashboard": null
+}

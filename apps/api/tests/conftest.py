@@ -1,0 +1,46 @@
+"""Shared pytest fixtures.
+
+Every test runs fully offline: ``NINTEL_LLM_ENABLED`` is forced off and the DB
+is pointed at a per-session tmp file so tests never touch the dev database or
+the network.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import pytest
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _offline_env(tmp_path_factory: pytest.TempPathFactory):
+    """Force offline mode + an isolated DB/data dir for the whole session."""
+
+    data_dir: Path = tmp_path_factory.mktemp("nintel-data")
+    os.environ["NINTEL_LLM_ENABLED"] = "false"
+    os.environ["NINTEL_CONNECTOR_MODE"] = "fixture"
+    os.environ["NINTEL_REVIEW_MODE"] = "manual"
+    os.environ["NINTEL_DATA_DIR"] = str(data_dir)
+    os.environ["NINTEL_DB_PATH"] = str(data_dir / "test.db")
+
+    # Reset the cached settings so the env overrides take effect.
+    from nintel.config import get_settings
+
+    get_settings.cache_clear()
+    yield
+
+
+@pytest.fixture()
+def settings():
+    from nintel.config import get_settings
+
+    get_settings.cache_clear()
+    return get_settings()
+
+
+@pytest.fixture(scope="session")
+def contract_dir() -> Path:
+    from nintel.config import get_settings
+
+    return get_settings().contract_dir

@@ -1,0 +1,99 @@
+{# Shared macros for the Dossier email templates (deep-evergreen #0C6151). #}
+
+{% macro section_header(index, title, desc, count, tone) -%}
+<tr><td class="px" style="padding:32px 34px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:18px;font-weight:800;color:#191B18;letter-spacing:-.4px;">
+      <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;font-weight:600;color:{{ tone }};">{{ '%02d'|format(index) }}</span>&nbsp;&nbsp;{{ title }}
+    </td>
+    <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#878B81;">{{ desc }}{% if count is not none %} · {{ count }} 条{% endif %}</td>
+  </tr></table>
+  <div style="height:2px;line-height:2px;font-size:2px;background:{{ tone }};margin-top:13px;">&nbsp;</div>
+</td></tr>
+{%- endmacro %}
+
+{% macro intel_card(item) -%}
+{% set style = IMPACT_STYLE.get(item.omada_impact, IMPACT_STYLE['unknown']) %}
+{% set off = item.source_tier == 'official' %}
+<tr><td class="px" style="padding:14px 34px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #E6E3DA;border-radius:10px;overflow:hidden;">
+    <tr><td style="padding:18px 20px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="vertical-align:middle;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#191B18;">
+          <span style="display:inline-block;width:7px;height:7px;border-radius:99px;background:{{ '#0C6151' if off else '#A8AC9F' }};vertical-align:1px;"></span>&nbsp;{{ item.source_label or item.source_domain }}
+          <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:10px;font-weight:600;color:{{ '#0C6151' if off else '#878B81' }};background:{{ '#DCE9E4' if off else '#EFEEE7' }};{% if not off %}border:1px solid #E6E3DA;{% endif %}padding:2px 6px;border-radius:4px;margin-left:6px;">{{ item.tier_label or TIER_LABEL.get(item.source_tier, '') }}</span>
+        </td>
+        <td align="right" style="vertical-align:middle;"><span style="display:inline-block;padding:4px 11px;background:{{ style.bg }};border-radius:999px;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:700;color:{{ style.accent }};">● {{ style.label }}</span></td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:13px 20px 0;">
+      <a href="{{ item.url }}" class="hov" style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:17px;font-weight:750;color:#191B18;letter-spacing:-.3px;">{{ item.title }}</a>
+      {% if item.stage %}<span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;font-weight:700;color:#54584F;background:#EFEEE7;border:1px solid #E6E3DA;border-radius:4px;padding:2px 7px;margin-left:6px;vertical-align:2px;">{{ item.stage }}</span>{% endif %}
+      {% if item.badges %}
+      <div style="margin-top:11px;">
+        {% for b in item.badges %}<span style="display:inline-block;font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:11px;color:#54584F;border:1px solid #E6E3DA;border-radius:999px;padding:3px 10px;">{{ b }}</span>{% endfor %}
+        {% if item.provenance %}<span style="display:inline-block;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#878B81;border:1px dashed #D4D0C4;border-radius:999px;padding:3px 10px;">来源 {{ item.provenance }}</span>{% endif %}
+      </div>
+      {% endif %}
+      <p style="margin:12px 0 0;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:14px;line-height:1.65;color:#34372F;">{{ item.summary }}</p>
+    </td></tr>
+    {% if item.impact_note %}
+    <tr><td style="padding:13px 20px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:{{ style.bg }};border-radius:7px;">
+        <tr><td style="padding:11px 14px;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;line-height:1.6;color:{{ style.text }};">
+          <strong style="color:{{ style.accent }};">{{ style.judge }} · </strong>{{ item.impact_note }}
+        </td></tr>
+      </table>
+    </td></tr>
+    {% endif %}
+    {% set ml = item.metrics | metrics_line %}
+    {% if ml %}<tr><td style="padding:12px 20px 14px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#878B81;">{{ ml }}</td></tr>{% endif %}
+    {# citation footer #}
+    <tr><td style="padding:0;">
+      <a href="{{ item.url }}" class="hov" style="display:block;background:{{ '#E8F0ED' if off else '#F7F6F1' }};border-top:1px solid {{ '#CFE0D9' if off else '#E6E3DA' }};padding:12px 20px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;">
+        <span style="display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;background:{{ '#0C6151' if off else '#7C8079' }};color:#fff;border-radius:4px;font-size:11px;font-weight:700;vertical-align:2px;">{{ item.cite_id }}</span>
+        &nbsp;<span style="color:{{ '#0C6151' if off else '#54584F' }};font-weight:700;">{{ item.source_domain }}</span>
+        <span style="color:{{ '#0C6151' if off else '#878B81' }};background:{{ '#DCE9E4' if off else '#EFEEE7' }};font-size:10px;padding:2px 5px;border-radius:3px;">{{ item.tier_label or TIER_LABEL.get(item.source_tier, '') }}</span>
+        <span style="color:#C9C5BA;">·</span> <span style="color:#878B81;">{{ item.date }}</span>
+        <span style="float:right;color:#0C6151;font-weight:600;">查看原文 ↗</span>
+      </a>
+    </td></tr>
+  </table>
+</td></tr>
+{%- endmacro %}
+
+{% macro references_block(references) -%}
+<tr><td class="px" style="padding:36px 34px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:16px;font-weight:800;color:#191B18;letter-spacing:-.3px;">参考来源</td>
+    <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#878B81;">References · 编号对应正文上标</td>
+  </tr></table>
+</td></tr>
+<tr><td class="px" style="padding:14px 34px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;">
+    <tr><td style="padding:6px 18px;">
+      {% for ref in references %}
+      {% set off = ref.source_tier == 'official' %}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:12px 0;{% if not loop.last %}border-bottom:1px solid #E6E3DA;{% endif %}font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;line-height:1.5;color:#54584F;">
+        <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;color:#0C6151;font-weight:700;">[{{ ref.cite_id }}]</span> <span style="color:#191B18;font-weight:600;">{{ ref.title }}</span> — <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;color:{{ '#0C6151' if off else '#54584F' }};">{{ ref.source_domain }}</span> · {{ ref.date }}{% if ref.tier_label %} · {{ ref.tier_label }}{% endif %}<br>
+        <a href="{{ ref.url }}" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:#0C6151;word-break:break-all;">{{ ref.url }}</a>
+      </td></tr></table>
+      {% endfor %}
+    </td></tr>
+  </table>
+</td></tr>
+{%- endmacro %}
+
+{% macro footer(report) -%}
+<tr><td class="px" style="padding:30px 34px 30px;">
+  <div style="border-top:1px solid #E6E3DA;padding-top:18px;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:12px;line-height:1.75;color:#878B81;">
+    <strong style="color:#191B18;font-weight:800;">Network Intel</strong> · 内部竞品 &amp; 舆情情报 · 仅限 TP-Link 网络产品团队<br>
+    数据融合：<span style="color:#54584F;">来源 B</span> UNIFI_CHANNELS Supabase（一手官方）+ <span style="color:#54584F;">来源 A</span> 个人情报流（Reddit / YouTube）+ <span style="color:#54584F;">来源 C</span> 行业 RSS<br>
+    <span style="display:inline-block;margin-top:10px;">
+      <a href="#" style="color:#0C6151;font-weight:600;">管理订阅</a> &nbsp;·&nbsp;
+      <a href="#" style="color:#0C6151;font-weight:600;">查看历史归档</a> &nbsp;·&nbsp;
+      <a href="#" style="color:#0C6151;font-weight:600;">在浏览器中打开</a>
+    </span>
+  </div>
+</td></tr>
+{%- endmacro %}
