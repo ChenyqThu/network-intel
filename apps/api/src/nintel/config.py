@@ -93,6 +93,13 @@ class Settings:
     resurface_cooldown_days: int = 3    # min days since last_reported before re-surface
     select_min_heat: int = 0            # noise floor for a NEW item to qualify
     select_max_items_daily: int = 12    # cap the selected pool
+    # Freshness window: an item only qualifies for a report if its publish date
+    # is within this many days of the report's as_of date (and not in the
+    # future). Without this, "never reported" was treated as "new", so months-
+    # old items leaked into a daily. daily=2 covers as_of + the prior day;
+    # weekly=7 covers the as_of ISO week (Mon..Sun when as_of is the Sunday).
+    daily_window_days: int = 2
+    weekly_window_days: int = 7
 
     # RAG / vector knowledge base (WS5). Off by default; kb_enabled() also
     # requires llm_enabled (retrieved text only matters if the LLM consumes it).
@@ -173,6 +180,8 @@ def get_settings() -> Settings:
         resurface_cooldown_days=int(os.getenv("NINTEL_RESURFACE_COOLDOWN_DAYS", "3")),
         select_min_heat=int(os.getenv("NINTEL_SELECT_MIN_HEAT", "0")),
         select_max_items_daily=int(os.getenv("NINTEL_SELECT_MAX_ITEMS_DAILY", "12")),
+        daily_window_days=int(os.getenv("NINTEL_DAILY_WINDOW_DAYS", "2")),
+        weekly_window_days=int(os.getenv("NINTEL_WEEKLY_WINDOW_DAYS", "7")),
         rag_enabled=_env_bool("NINTEL_RAG_ENABLED", False),
         rag_classify=_env_bool("NINTEL_RAG_CLASSIFY", False),
         embedder=os.getenv("NINTEL_EMBEDDER", "fastembed").strip().lower(),

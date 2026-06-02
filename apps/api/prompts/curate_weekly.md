@@ -31,5 +31,11 @@
 - `lead`/`strategy` 中所有 `{{cite:N}}` 必须可在 `references` 中解析。
 - item 的 `cite_id` 集合 == `references` 的 `cite_id` 集合，无重复。
 
+## 必须输出顶层 `items[]` 数组（关键，勿省略）
+不能只给 `sections` + `references` 而省略 `items`。顶层 `items[]` 是每条情报的判断载体，
+每条对象至少包含：`id`、`subject`、`source`、`url`、`title`、`summary`、`omada_impact`
+（遵守上面的主体语义，competitor 用 threat/opportunity/neutral，不要用 unknown）、
+`impact_note`（中文研判一句话）、`signal_strength`。`sections[].items` 用这些 `id` 引用。
+
 ## 输出
 只输出符合 schema 的 `report.json`（一个 JSON 对象），不要输出多余文字。

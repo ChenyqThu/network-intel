@@ -16,6 +16,7 @@ from nintel.engine.select import (
     Prior,
     SelectConfig,
     evaluate,
+    is_fresh,
     order_bucket,
 )
 
@@ -79,6 +80,35 @@ def test_reported_quiet_item_excluded():
     d = evaluate(_reported("2026-06-01"), heat=12, sentiment="neu",
                  switch_intent=False, as_of=AS_OF, cfg=CFG)  # delta 2, ratio 1.2, no flip/switch
     assert not d.eligible
+
+
+# --- freshness window (the stale-content fix) -----------------------------
+def test_fresh_within_daily_window():
+    # daily window=2 -> as_of and the day before qualify.
+    assert is_fresh("2026-06-01", date(2026, 6, 1), 2)      # same day
+    assert is_fresh("2026-05-31", date(2026, 6, 1), 2)      # prior day
+
+
+def test_stale_outside_daily_window_rejected():
+    assert not is_fresh("2026-05-30", date(2026, 6, 1), 2)  # 2 days -> out
+    assert not is_fresh("2025-07-30", date(2026, 6, 1), 2)  # ~10 months -> out
+
+
+def test_future_dated_rejected():
+    assert not is_fresh("2026-06-02", date(2026, 6, 1), 2)  # tomorrow -> out
+
+
+def test_missing_or_unparseable_date_rejected():
+    assert not is_fresh(None, date(2026, 6, 1), 2)
+    assert not is_fresh("", date(2026, 6, 1), 2)
+    assert not is_fresh("not-a-date", date(2026, 6, 1), 2)
+
+
+def test_weekly_window_covers_iso_week():
+    # weekly window=7, as_of = Sunday 2026-05-31 -> Mon..Sun (W22) qualify.
+    for d in ("2026-05-25", "2026-05-28", "2026-05-31"):
+        assert is_fresh(d, date(2026, 5, 31), 7)
+    assert not is_fresh("2026-05-24", date(2026, 5, 31), 7)  # prior Sunday -> out
 
 
 def test_order_bucket_precedence():

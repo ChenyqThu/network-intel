@@ -19,7 +19,7 @@ seed manifest), so report output stays byte-identical; only state is advanced.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from sqlalchemy import select as sa_select
 
@@ -52,6 +52,8 @@ class SelectConfig:
     cooldown_days: int
     min_heat: int
     max_items_daily: int
+    daily_window_days: int = 2
+    weekly_window_days: int = 7
 
     @classmethod
     def from_settings(cls, s: Settings) -> "SelectConfig":
@@ -61,7 +63,12 @@ class SelectConfig:
             cooldown_days=s.resurface_cooldown_days,
             min_heat=s.select_min_heat,
             max_items_daily=s.select_max_items_daily,
+            daily_window_days=s.daily_window_days,
+            weekly_window_days=s.weekly_window_days,
         )
+
+    def window_days(self, report_type: str) -> int:
+        return self.weekly_window_days if report_type == "weekly" else self.daily_window_days
 
 
 @dataclass(frozen=True)
@@ -82,6 +89,23 @@ def _days_between(iso_date: str, as_of: date) -> int:
     except (ValueError, TypeError):
         return 10**6  # unparyable -> treat as long ago (cooldown satisfied)
     return (as_of - prev).days
+
+
+def is_fresh(item_date: str | None, as_of: date, window_days: int) -> bool:
+    """Freshness gate: an item qualifies only if its publish date falls inside
+    the report window — within ``window_days`` of ``as_of`` and not in the
+    future. A missing/unparseable date is *not* provably fresh, so it's excluded
+    (this is what stops months-old or undated rows from leaking into a daily).
+    """
+
+    if not item_date:
+        return False
+    try:
+        d = date.fromisoformat(str(item_date)[:10])
+    except (ValueError, TypeError):
+        return False
+    delta = (as_of - d).days
+    return 0 <= delta < window_days
 
 
 def evaluate(
@@ -153,6 +177,22 @@ def select_for_report(
 
     cfg = SelectConfig.from_settings(get_settings())
     as_of_iso = as_of.isoformat()
+    window = cfg.window_days(report_type)
+
+    # Freshness gate (the fix for stale content): only items whose publish date
+    # falls inside the report window are candidates. Without this, an item that
+    # was simply "never reported" counted as new regardless of age, so months-
+    # old (even last-year) rows leaked into a daily. Stale/undated rows are
+    # dropped here so they never reach select scoring, curate, or the report.
+    fresh_items = [it for it in items if is_fresh(it.get("date"), as_of, window)]
+    if len(fresh_items) != len(items):
+        import logging
+
+        logging.getLogger(__name__).info(
+            "select: freshness window=%dd dropped %d/%d stale items (as_of=%s type=%s)",
+            window, len(items) - len(fresh_items), len(items), as_of_iso, report_type,
+        )
+    items = fresh_items
 
     from ..store.db import session_scope
     from ..store.models import HeatSnapshotRow, IntelItemRow

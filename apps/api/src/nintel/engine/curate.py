@@ -277,6 +277,10 @@ _SUBJECT_BY_SOURCE = {
     "unifi_release": "competitor", "unifi_community": "competitor", "blog": "competitor",
     "unifi_store": "competitor", "unifi_product": "competitor",
 }
+# When the LLM omits a per-item impact (e.g. the weekly path emits sections but
+# no items[] judgments), fall back to a *valid, sensible* impact for the subject
+# rather than the uninformative "unknown" (which leaves the tally empty).
+_DEFAULT_IMPACT_BY_SUBJECT = {"competitor": "neutral", "industry": "neutral"}
 # Per-item fields the LLM is allowed to set/override; everything else comes from
 # the real classified item.
 _JUDGMENT_KEYS = (
@@ -308,7 +312,9 @@ def _reconcile_items(doc: dict[str, Any], input_items: list[dict[str, Any]]) -> 
                 merged[k] = v
         merged["id"] = li.get("id") or merged.get("id") or f"i{idx + 1}"
         merged.setdefault("subject", _SUBJECT_BY_SOURCE.get(merged.get("source"), "competitor"))
-        merged.setdefault("omada_impact", "unknown")
+        merged.setdefault(
+            "omada_impact", _DEFAULT_IMPACT_BY_SUBJECT.get(merged["subject"], "unknown")
+        )
         out.append(merged)
     doc["items"] = out
     return doc
@@ -341,6 +347,12 @@ def _normalize_llm_doc(
     if report_type == "daily":
         doc["strategy"] = None  # daily must not carry a strategy block
         doc["dashboard"] = None
+    if not doc.get("title"):
+        if report_type == "weekly":
+            period = report_id.replace("-weekly", "")  # e.g. 2026-W22
+            doc["title"] = f"Omada 竞品情报周报 · {period}"
+        else:
+            doc["title"] = f"Omada 竞品情报日报 · {doc['date']}"
     return doc
 
 

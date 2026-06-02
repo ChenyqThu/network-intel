@@ -86,6 +86,9 @@ def apply_trends(report: Report, *, seed_dashboard: dict[str, Any] | None) -> Re
     doc = report.dump()
 
     doc["stats"] = _merge_stats(doc.get("stats", {}), compute_stats(items))
+    # The engine owns the signal tally (counts), not the LLM — recompute it from
+    # the curated items so daily and weekly are always consistent and correct.
+    doc["tally"] = compute_tally(items)
 
     if report.type == "weekly" and seed_dashboard is not None:
         dashboard = dict(seed_dashboard)
