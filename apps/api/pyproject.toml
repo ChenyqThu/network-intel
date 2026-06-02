@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-llm = ["anthropic==0.42.0"]
+llm = ["anthropic==0.105.2"]  # needs >=0.x with output_config/thinking/effort
 # RAG vector knowledge base. sqlite-vec is small + needed by the test suite;
 # fastembed (ONNX, ~130MB model on first run) is only used when
 # NINTEL_EMBEDDER=fastembed, so it stays out of [dev]/CI.

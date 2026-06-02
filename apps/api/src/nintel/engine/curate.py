@@ -101,8 +101,16 @@ def curate(
         from . import llm
 
         doc = llm.curate_report(items, report_type=report_type, report_id=rid)
-        # Guarantee the cite_id <-> reference bijection regardless of LLM output
-        # ordering, then mark re-surfaced items with a badge.
+        # LLM output can carry stray keys; the contract is closed
+        # (additionalProperties:false). Prune to allowed keys, then fill the
+        # structural fields we own + guarantee the cite bijection.
+        doc = _clean_to_schema(doc)
+        doc = _normalize_llm_doc(
+            doc, report_type=report_type, report_id=rid, generated_at=generated_at
+        )
+        # The section taxonomy is fixed per cadence — the engine assembles it
+        # from each item's subject/source, not the LLM (which drifts).
+        doc["sections"] = _assemble_sections(doc.get("items", []), report_type)
         doc = assign_cite_ids(doc)
         if reasons:
             _apply_resurface_badges(doc, reasons)
@@ -163,6 +171,117 @@ def _curate_fixture(
 
     _assert_citation_integrity(doc)
     return load_report(doc)
+
+
+# Allowed keys per contract level (report.schema.json, additionalProperties:false).
+_ALLOWED_TOP = {
+    "report_id", "type", "date", "date_range", "generated_at", "title", "lead",
+    "strategy", "tally", "sections", "items", "references", "store", "stats", "dashboard",
+}
+_ALLOWED_ITEM = {
+    "id", "cite_id", "subject", "source", "source_domain", "source_tier", "source_label",
+    "tier_label", "glyph", "provenance", "title", "stage", "badges", "summary", "category",
+    "signal_strength", "omada_impact", "impact_note", "metrics", "sentiment", "relevance",
+    "switch_intent", "date", "url",
+}
+_ALLOWED_REF = {"cite_id", "title", "source_domain", "source_tier", "tier_label", "date", "url"}
+_ALLOWED_SECTION = {"key", "title", "icon", "desc", "items"}
+_ALLOWED_LEAD = {"text", "strong", "cite_refs"}
+_ALLOWED_STRATEGY = {"title", "period", "paras", "body", "cite_refs"}
+_ALLOWED_STORE = {"product", "cat", "from", "to", "change", "dir", "stock"}
+_ALLOWED_TALLY = {"signals", "threat", "opp", "neutral", "official"}
+
+
+_SECTION_TITLES = {
+    "omada_self": "Omada 自身舆情",
+    "competitor": "竞品动态",
+    "sentiment": "竞品舆情与对比",
+    "industry": "行业要闻",
+    "store": "Store 动向",
+    "dashboard": "数据看板",
+}
+_SECTIONS_BY_TYPE = {
+    "daily": ["omada_self", "competitor", "sentiment", "industry"],
+    "weekly": ["omada_self", "competitor", "sentiment", "store", "industry", "dashboard"],
+}
+_OFFICIAL_SOURCES = {"unifi_release", "blog", "unifi_product", "unifi_store"}
+
+
+def _section_for_item(it: dict[str, Any]) -> str:
+    subject = it.get("subject")
+    if subject == "omada_self":
+        return "omada_self"
+    if subject == "industry":
+        return "industry"
+    # competitor (or unknown): official moves vs community sentiment
+    return "competitor" if it.get("source") in _OFFICIAL_SOURCES else "sentiment"
+
+
+def _assemble_sections(items: list[dict[str, Any]], report_type: str) -> list[dict[str, Any]]:
+    """Deterministically build the cadence's fixed sections from item subjects.
+
+    store / dashboard are item-less sections (the frontend renders report.store /
+    report.dashboard); they appear with items=[] so the contract order holds.
+    """
+    keys = _SECTIONS_BY_TYPE.get(report_type, _SECTIONS_BY_TYPE["daily"])
+    buckets: dict[str, list[str]] = {k: [] for k in keys}
+    for it in items:
+        sec = _section_for_item(it)
+        if sec not in buckets:
+            sec = "industry" if "industry" in buckets else keys[0]
+        buckets[sec].append(it["id"])
+    return [{"key": k, "title": _SECTION_TITLES[k], "items": buckets.get(k, [])} for k in keys]
+
+
+def _prune(d: Any, allowed: set[str]) -> Any:
+    return {k: v for k, v in d.items() if k in allowed} if isinstance(d, dict) else d
+
+
+def _clean_to_schema(doc: dict[str, Any]) -> dict[str, Any]:
+    """Drop keys the closed contract doesn't allow (LLM output can drift).
+
+    metrics/stats/dashboard are open objects, so their contents are left intact.
+    """
+    doc = _prune(doc, _ALLOWED_TOP)
+    if isinstance(doc.get("lead"), dict):
+        doc["lead"] = _prune(doc["lead"], _ALLOWED_LEAD)
+    if isinstance(doc.get("strategy"), dict):
+        doc["strategy"] = _prune(doc["strategy"], _ALLOWED_STRATEGY)
+    if isinstance(doc.get("tally"), dict):
+        doc["tally"] = _prune(doc["tally"], _ALLOWED_TALLY)
+    if isinstance(doc.get("items"), list):
+        doc["items"] = [_prune(it, _ALLOWED_ITEM) for it in doc["items"] if isinstance(it, dict)]
+    if isinstance(doc.get("references"), list):
+        doc["references"] = [_prune(r, _ALLOWED_REF) for r in doc["references"] if isinstance(r, dict)]
+    if isinstance(doc.get("sections"), list):
+        doc["sections"] = [_prune(s, _ALLOWED_SECTION) for s in doc["sections"] if isinstance(s, dict)]
+    if isinstance(doc.get("store"), list):
+        doc["store"] = [_prune(r, _ALLOWED_STORE) for r in doc["store"] if isinstance(r, dict)]
+    return doc
+
+
+def _normalize_llm_doc(
+    doc: dict[str, Any], *, report_type: str, report_id: str, generated_at: str | None
+) -> dict[str, Any]:
+    """Fill the structural/identity fields the engine owns, so a valid report
+    never depends on the LLM remembering to emit them. The LLM produces the
+    editorial content (lead / sections / items / references / strategy); we set
+    report_id, type, dates, and a stats placeholder (trend recomputes stats)."""
+
+    doc["report_id"] = report_id
+    doc["type"] = report_type
+    doc["generated_at"] = doc.get("generated_at") or generated_at or default_generated_at()
+    if not doc.get("date"):
+        doc["date"] = date.today().isoformat()
+    doc.setdefault("date_range", doc["date"])
+    # stats + dashboard are recomputed by the trend stage — force clean values
+    # so a malformed LLM block (e.g. top_hot of strings) can't fail validation.
+    doc["stats"] = {"total_items": len(doc.get("items", []))}
+    doc.setdefault("references", [])
+    if report_type == "daily":
+        doc["strategy"] = None  # daily must not carry a strategy block
+        doc["dashboard"] = None
+    return doc
 
 
 def assign_cite_ids(doc: dict[str, Any]) -> dict[str, Any]:

@@ -27,7 +27,11 @@ from pathlib import Path
 try:  # python-dotenv is a hard dependency, but stay import-safe.
     from dotenv import load_dotenv
 
-    load_dotenv()
+    # override=True so the project's .env is authoritative for its own config
+    # even when the host process injects ANTHROPIC_*/etc. into the environment
+    # (e.g. a Claude Code harness exporting ANTHROPIC_BASE_URL). Tests stay
+    # hermetic because conftest sets/pops the relevant vars after import.
+    load_dotenv(override=True)
 except Exception:  # pragma: no cover - defensive only
     pass
 

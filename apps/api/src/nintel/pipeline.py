@@ -26,6 +26,14 @@ from .engine import classify, curate, ingest, render, select, trend
 from .store.db import init_db
 
 
+def _dynamic_report_id(report_type: str, as_of: date) -> str:
+    """Date-derived report id for live/LLM builds (offline keeps the seed id)."""
+    if report_type == "weekly":
+        iso = as_of.isocalendar()
+        return f"{iso[0]}-W{iso[1]:02d}-weekly"
+    return f"{as_of.isoformat()}-daily"
+
+
 def build(
     report_type: str,
     *,
@@ -66,9 +74,13 @@ def build(
     use_dynamic = settings.llm_enabled and selected is not None
     pool = selected if use_dynamic else raw_items
     classified = classify.classify(pool)
+    # Dynamic reports get a date-derived id (daily: YYYY-MM-DD-daily, weekly:
+    # YYYY-Www-weekly); offline keeps the seed id so the fixture round-trip holds.
+    report_id = _dynamic_report_id(report_type, as_of or date.today()) if use_dynamic else None
     report = curate.curate(
         classified,
         report_type=report_type,
+        report_id=report_id,
         reasons=reasons if use_dynamic else None,
     )
 
