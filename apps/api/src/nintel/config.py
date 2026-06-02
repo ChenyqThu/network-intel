@@ -159,4 +159,6 @@ def get_settings() -> Settings:
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
         opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),
+        # Override to A/B a candidate prompt set (e.g. prompts/variants/).
+        prompts_dir=Path(os.getenv("NINTEL_PROMPT_DIR", str(PROMPTS_DIR))).resolve(),
     )

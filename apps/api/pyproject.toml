@@ -46,3 +46,6 @@ nintel = ["templates/*.j2"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+markers = [
+    "eval: LLM prompt evaluation; skipped unless NINTEL_LLM_ENABLED=true (+ API key)",
+]
