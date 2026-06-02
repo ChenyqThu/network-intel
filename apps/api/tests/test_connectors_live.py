@@ -14,7 +14,7 @@ import pytest
 from nintel.connectors import RssReader, SentimentMonitorReader, SupabaseReader
 from nintel.connectors.base import RawRow
 from nintel.connectors.rss import map_rss_entry
-from nintel.connectors.sentiment_monitor import map_notion_record
+from nintel.connectors.sentiment_monitor import map_reddit_row, map_youtube_row
 from nintel.connectors.supabase import map_blog_row, map_community_row, map_release_row
 from nintel.engine.ingest import content_hash
 
@@ -62,14 +62,32 @@ def test_supabase_blog_mapper():
     assert rr.raw["metrics"]["views"] == 56683
 
 
-def test_notion_mapper_parity():
-    a = _fixture_row(SentimentMonitorReader(), "reddit")
-    live = {"source": a.source, "url": a.url, "title": a.title, "date": a.published,
-            "sentiment": "neg", "relevance": 0.9, "switch_intent": True}
-    rr = map_notion_record(live)
-    assert rr.provenance == "A"
-    assert content_hash(rr.source, rr.url, rr.title) == content_hash(a.source, a.url, a.title)
-    assert rr.raw["sentiment"] == "neg" and rr.raw["switch_intent"] is True
+def test_reddit_mapper():
+    # real posts row shape (verified live)
+    row = {"subreddit": "Ubiquiti", "title": "Troubleshooting UniFi Express 7",
+           "permalink": "/r/Ubiquiti/comments/1t4t4qk/x/",
+           "url": "https://www.reddit.com/r/Ubiquiti/comments/1t4t4qk/x/",
+           "score": 12, "num_comments": 4, "created_utc": 1778016684.0,
+           "ai_relevance_score": 0.45, "ai_sentiment_quick": "negative"}
+    rr = map_reddit_row(row)
+    assert rr.source == "reddit" and rr.provenance == "A"
+    assert rr.url == "https://www.reddit.com/r/Ubiquiti/comments/1t4t4qk/x/"
+    assert rr.raw["sentiment"] == "neg"
+    assert rr.raw["metrics"]["likes"] == 12 and rr.raw["relevance"] == 0.45
+    assert rr.published.startswith("2026-")
+    assert content_hash(rr.source, rr.url, rr.title)
+
+
+def test_youtube_mapper():
+    row = {"channel_title": "Unified IT", "title": "UniFi Network Vulnerability",
+           "url": "https://www.youtube.com/watch?v=NB5xpGjZcUA",
+           "published_at": "2026-03-20T23:38:05Z", "view_count": 278, "like_count": 13,
+           "comment_count": 1, "ai_relevance_score": 0.7, "ai_sentiment_quick": "negative"}
+    rr = map_youtube_row(row)
+    assert rr.source == "youtube" and rr.provenance == "A"
+    assert rr.url == "https://www.youtube.com/watch?v=NB5xpGjZcUA"
+    assert rr.published == "2026-03-20"
+    assert rr.raw["metrics"]["views"] == 278 and rr.raw["sentiment"] == "neg"
 
 
 def test_rss_mapper_parity():

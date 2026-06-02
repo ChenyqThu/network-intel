@@ -37,7 +37,7 @@ def _offline_env(tmp_path_factory: pytest.TempPathFactory):
         "NOTION_YOUTUBE_DATABASE_ID", "KOS_MCP_BASE", "KOS_OAUTH_CLIENT_ID",
         "KOS_OAUTH_CLIENT_SECRET", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL",
         "NINTEL_LIVE_SOURCES", "NINTEL_PROMPT_DIR", "NINTEL_KOS_PUBLISH",
-        "NINTEL_KOS_SLUG_PREFIX",
+        "NINTEL_KOS_SLUG_PREFIX", "NINTEL_SENTIMENT_DB_PATH",
     ):
         os.environ.pop(_leak, None)
 
