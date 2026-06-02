@@ -105,6 +105,11 @@ def curate(
         # (additionalProperties:false). Prune to allowed keys, then fill the
         # structural fields we own + guarantee the cite bijection.
         doc = _clean_to_schema(doc)
+        # Reconcile against the real input pool: drop any item the LLM invented
+        # (url not in the pool), and backfill required fields from the real
+        # classified item — overlaying only the LLM's judgments. Guarantees every
+        # emitted item is real + schema-complete.
+        doc = _reconcile_items(doc, items)
         doc = _normalize_llm_doc(
             doc, report_type=report_type, report_id=rid, generated_at=generated_at
         )
@@ -112,6 +117,9 @@ def curate(
         # from each item's subject/source, not the LLM (which drifts).
         doc["sections"] = _assemble_sections(doc.get("items", []), report_type)
         doc = assign_cite_ids(doc)
+        # The LLM lead/strategy may cite numbers that don't map to any item;
+        # drop those dangling placeholders rather than fail the whole report.
+        _strip_unresolved_cites(doc)
         if reasons:
             _apply_resurface_badges(doc, reasons)
         _assert_citation_integrity(doc)
@@ -260,6 +268,49 @@ def _clean_to_schema(doc: dict[str, Any]) -> dict[str, Any]:
     return doc
 
 
+_SUBJECT_BY_SOURCE = {
+    "rss": "industry",
+    "omada_community": "omada_self",
+    "reddit": "competitor", "youtube": "competitor",
+    "unifi_release": "competitor", "unifi_community": "competitor", "blog": "competitor",
+    "unifi_store": "competitor", "unifi_product": "competitor",
+}
+# Per-item fields the LLM is allowed to set/override; everything else comes from
+# the real classified item.
+_JUDGMENT_KEYS = (
+    "subject", "omada_impact", "impact_note", "signal_strength", "badges",
+    "stage", "summary", "category",
+)
+
+
+def _reconcile_items(doc: dict[str, Any], input_items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Rebuild items from the real input pool + the LLM's judgments.
+
+    Keeps only items whose ``url`` is in the pool (drops anything the LLM
+    invented), copies the real classified fields (summary/category/source/url/…),
+    overlays the LLM's judgment fields, and fills a source-derived subject /
+    ``unknown`` impact if the LLM omitted them. Result: every item is real and
+    schema-complete.
+    """
+    by_url = {it.get("url"): it for it in input_items if it.get("url")}
+    out: list[dict[str, Any]] = []
+    for idx, li in enumerate(doc.get("items", [])):
+        base = by_url.get(li.get("url"))
+        if base is None:
+            continue
+        merged = dict(base)
+        for k in _JUDGMENT_KEYS:
+            v = li.get(k)
+            if v not in (None, ""):
+                merged[k] = v
+        merged["id"] = li.get("id") or merged.get("id") or f"i{idx + 1}"
+        merged.setdefault("subject", _SUBJECT_BY_SOURCE.get(merged.get("source"), "competitor"))
+        merged.setdefault("omada_impact", "unknown")
+        out.append(merged)
+    doc["items"] = out
+    return doc
+
+
 def _normalize_llm_doc(
     doc: dict[str, Any], *, report_type: str, report_id: str, generated_at: str | None
 ) -> dict[str, Any]:
@@ -281,6 +332,9 @@ def _normalize_llm_doc(
     # so a malformed LLM block (e.g. top_hot of strings) can't fail validation.
     doc["stats"] = {"total_items": len(doc.get("items", []))}
     doc.setdefault("references", [])
+    # store must be an array of rows; the LLM sometimes emits a table object.
+    if not isinstance(doc.get("store"), list):
+        doc["store"] = []
     if report_type == "daily":
         doc["strategy"] = None  # daily must not carry a strategy block
         doc["dashboard"] = None
@@ -365,6 +419,36 @@ def _apply_resurface_badges(doc: dict[str, Any], reasons: dict[str, str]) -> Non
             badges = list(it.get("badges") or [])
             if badge not in badges:
                 it["badges"] = [badge] + badges
+
+
+def _strip_unresolved_cites(doc: dict[str, Any]) -> None:
+    """Remove {{cite:N}} / cite_refs entries whose N is not a real reference.
+
+    LLM lead/strategy text often cites numbers that don't line up with the
+    emitted items; rather than fail, drop the dangling placeholders so the
+    report stays valid and integrity holds.
+    """
+    ref_set = {r.get("cite_id") for r in doc.get("references", [])}
+
+    def _fix(text: str) -> str:
+        return _CITE_RE.sub(
+            lambda m: m.group(0) if int(m.group(1)) in ref_set else "", text or ""
+        )
+
+    lead = doc.get("lead")
+    if isinstance(lead, dict):
+        if "text" in lead:
+            lead["text"] = _fix(lead["text"])
+        if isinstance(lead.get("cite_refs"), list):
+            lead["cite_refs"] = [n for n in lead["cite_refs"] if n in ref_set]
+    strat = doc.get("strategy")
+    if isinstance(strat, dict):
+        if strat.get("body"):
+            strat["body"] = _fix(strat["body"])
+        if isinstance(strat.get("cite_refs"), list):
+            strat["cite_refs"] = [n for n in strat["cite_refs"] if n in ref_set]
+        if isinstance(strat.get("paras"), list):
+            strat["paras"] = [[p[0], _fix(p[1])] for p in strat["paras"] if len(p) == 2]
 
 
 def _assert_citation_integrity(doc: dict[str, Any]) -> None:

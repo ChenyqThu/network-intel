@@ -204,11 +204,30 @@ def select_for_report(
                 scored.append((it, decision.reason, heat))
 
     scored.sort(key=lambda t: (order_bucket(t[1], t[0]), -t[2]))
-    scored = scored[: cfg.max_items_daily]
+    scored = _balance_by_source(scored, cfg.max_items_daily)
     return SelectionResult(
         items=[t[0] for t in scored],
         reasons={t[0]["url"]: t[1] for t in scored if t[1] and t[1] != REASON_NEW},
     )
+
+
+def _balance_by_source(scored: list, limit: int) -> list:
+    """Round-robin across sources so one high-engagement source (e.g. blog, with
+    10k+ view counts) doesn't crowd out Reddit/community/RSS. Within a source,
+    the existing priority/heat order is preserved."""
+    from collections import OrderedDict
+
+    by_src: "OrderedDict[str, list]" = OrderedDict()
+    for t in scored:
+        by_src.setdefault(t[0].get("source", "?"), []).append(t)
+    out: list = []
+    while len(out) < limit and any(by_src.values()):
+        for src in list(by_src):
+            if by_src[src]:
+                out.append(by_src[src].pop(0))
+                if len(out) >= limit:
+                    break
+    return out
 
 
 def _upsert_snapshot(session, HeatSnapshotRow, ch, observed_on, heat, item, sentiment) -> None:
