@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nintel.chenge.ink/contract/report.schema.json",
+  "title": "Network Intel report.json contract",
+  "description": "Engine <-> frontend contract. PRD v1.3 §7.9 + v1.3 strategy/subject/sentiment additions. The engine produces this; every frontend (web/email/Feishu) only renders it.",
+  "type": "object",
+  "required": ["report_id", "type", "date", "date_range", "generated_at", "lead", "sections", "items", "references", "stats"],
+  "additionalProperties": false,
+  "properties": {
+    "report_id": { "type": "string", "examples": ["2026-06-01-daily", "2026-W22-weekly"] },
+    "type": { "enum": ["daily", "weekly"] },
+    "date": { "type": "string", "format": "date" },
+    "date_range": { "type": "string", "description": "single date for daily; 'YYYY-MM-DD~MM-DD' for weekly" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "title": { "type": "string" },
+    "lead": {
+      "type": "object",
+      "required": ["text", "cite_refs"],
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "description": "Opus-synthesized lede with {{cite:N}} placeholders" },
+        "strong": { "type": ["string", "null"], "description": "optional bold one-line takeaway" },
+        "cite_refs": { "type": "array", "items": { "type": "integer", "minimum": 1 } }
+      }
+    },
+    "strategy": {
+      "description": "Market-strategy insight. Weekly only (v1.3); null on daily.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["title", "body", "cite_refs"],
+          "additionalProperties": false,
+          "properties": {
+            "title": { "type": "string" },
+            "period": { "type": "string" },
+            "paras": {
+              "type": "array",
+              "description": "optional labeled paragraphs [[label, text-with-{{cite:N}}]]",
+              "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 }
+            },
+            "body": { "type": "string", "description": "fallback prose with {{cite:N}} placeholders" },
+            "cite_refs": { "type": "array", "items": { "type": "integer", "minimum": 1 } }
+          }
+        }
+      ]
+    },
+    "tally": {
+      "type": ["object", "null"],
+      "description": "lead signal tally chips",
+      "additionalProperties": false,
+      "properties": {
+        "signals": { "type": "integer" },
+        "threat": { "type": "integer" },
+        "opp": { "type": "integer" },
+        "neutral": { "type": "integer" },
+        "official": { "type": "integer" }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["key", "title", "items"],
+        "additionalProperties": false,
+        "properties": {
+          "key": { "enum": ["omada_self", "competitor", "sentiment", "industry", "store", "dashboard"] },
+          "title": { "type": "string" },
+          "icon": { "type": "string", "description": "icon name (see frontend icon registry)" },
+          "desc": { "type": "string" },
+          "items": { "type": "array", "items": { "type": "string" }, "description": "intel_item.id refs, order = display order" }
+        }
+      }
+    },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/intelItem" } },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cite_id", "title", "source_domain", "date", "url"],
+        "additionalProperties": false,
+        "properties": {
+          "cite_id": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string" },
+          "source_domain": { "type": "string" },
+          "source_tier": { "enum": ["official", "community"] },
+          "tier_label": { "type": "string" },
+          "date": { "type": "string", "format": "date" },
+          "url": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "store": {
+      "type": "array",
+      "description": "weekly store-moves table",
+      "items": {
+        "type": "object",
+        "required": ["product", "stock"],
+        "additionalProperties": false,
+        "properties": {
+          "product": { "type": "string" },
+          "cat": { "type": "string" },
+          "from": { "type": ["number", "null"] },
+          "to": { "type": ["number", "null"] },
+          "change": { "type": "string" },
+          "dir": { "enum": ["up", "down", "flat", "new"] },
+          "stock": { "enum": ["in", "low", "out"] }
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "description": "analytics dashboard (weekly-focused)",
+      "additionalProperties": true,
+      "properties": {
+        "total_items": { "type": "integer" },
+        "by_source": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "by_impact": { "type": "object", "additionalProperties": { "type": "integer" } },
+        "top_hot": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "score": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "dashboard": {
+      "type": ["object", "null"],
+      "description": "weekly visual dashboard payload (charts); null on daily",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "intelItem": {
+      "type": "object",
+      "required": ["id", "cite_id", "subject", "source", "source_domain", "source_tier", "title", "summary", "category", "omada_impact", "date", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "cite_id": { "type": "integer", "minimum": 1 },
+        "subject": { "enum": ["omada_self", "competitor", "industry"], "description": "who the signal is about -> which section + which impact semantics" },
+        "source": { "enum": ["omada_community", "unifi_community", "unifi_product", "unifi_store", "unifi_release", "blog", "reddit", "youtube", "rss", "x"] },
+        "source_domain": { "type": "string" },
+        "source_tier": { "enum": ["official", "community"] },
+        "source_label": { "type": "string", "description": "source badge display text" },
+        "tier_label": { "type": "string" },
+        "glyph": { "type": "string", "description": "source glyph: unifi/reddit/youtube/rss/x" },
+        "provenance": { "enum": ["A", "B", "C", "D"], "description": "A=sentiment-monitor B=UNIFI_CHANNELS C=industry RSS D=strategy" },
+        "title": { "type": "string" },
+        "stage": { "type": ["string", "null"], "description": "firmware stage GA/RC/EA" },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "summary": { "type": "string" },
+        "category": { "enum": ["bug", "feature_request", "praise", "pain_point", "new_product", "pricing", "firmware", "competitor", "sentiment", "industry", "industry_trend"] },
+        "signal_strength": { "enum": ["high", "medium", "low"] },
+        "omada_impact": { "enum": ["threat", "opportunity", "neutral", "needs_fix", "feature_input", "strength_confirm", "unknown"] },
+        "impact_note": { "type": ["string", "null"] },
+        "metrics": {
+          "type": ["object", "null"],
+          "additionalProperties": true,
+          "properties": {
+            "likes": { "type": ["integer", "null"] },
+            "comments": { "type": ["integer", "null"] },
+            "views": { "type": ["integer", "null"] },
+            "score": { "type": ["integer", "null"] },
+            "note": { "type": ["string", "null"] }
+          }
+        },
+        "sentiment": { "enum": ["pos", "neg", "neu", null], "description": "v1.3 sentiment-monitor field" },
+        "relevance": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "switch_intent": { "type": ["boolean", "null"] },
+        "date": { "type": "string", "format": "date" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    }
+  }
+}
