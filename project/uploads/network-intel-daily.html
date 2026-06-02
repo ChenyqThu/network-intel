@@ -1,0 +1,756 @@
+
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network Intel · 2026-06-01 · 洞察日报</title>
+<style>
+  /* ─── Neutral Modern tokens（:root 即品牌契约，verbatim 绑定）───────── */
+  :root{
+    --bg:#fafafa; --surface:#ffffff; --fg:#111111; --muted:#6b6b6b;
+    --border:#e5e5e5; --accent:#2f6feb; --accent-on:#ffffff;
+    --success:#17a34a; --warn:#eab308; --danger:#dc2626;
+    --font-display:'Inter',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+    --font-body:'Inter',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+    --font-mono:ui-monospace,'JetBrains Mono','SF Mono',Menlo,monospace;
+
+    /* 派生（color-mix，不引入裸 hex）*/
+    --surface-2:color-mix(in oklab,var(--fg),var(--surface) 96%);
+    --meta:color-mix(in oklab,var(--muted),var(--fg) 8%);
+    --accent-soft:color-mix(in oklab,var(--accent),transparent 90%);
+    --accent-line:color-mix(in oklab,var(--accent),transparent 78%);
+    --threat-soft:color-mix(in oklab,var(--danger),var(--surface) 90%);
+    --threat-ink:color-mix(in oklab,var(--danger),var(--fg) 22%);
+    --opp-soft:color-mix(in oklab,var(--success),var(--surface) 88%);
+    --opp-ink:color-mix(in oklab,var(--success),var(--fg) 26%);
+    --neutral-soft:color-mix(in oklab,var(--muted),var(--surface) 86%);
+    --cite-bg:color-mix(in oklab,var(--accent),var(--surface) 95%);
+    --cite-bg-2:color-mix(in oklab,var(--muted),var(--surface) 94%);
+    --shadow:0 1px 2px color-mix(in oklab,var(--fg),transparent 92%),0 12px 28px color-mix(in oklab,var(--fg),transparent 94%);
+    --nav-h:60px;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e0f12; --surface:#17191d; --fg:#f3f4f6; --muted:#9aa0a6;
+    --border:#2a2d33; --accent:#5b8def; --accent-on:#0e0f12;
+    --success:#36c178; --warn:#e3b94a; --danger:#ef6b73;
+    --surface-2:color-mix(in oklab,var(--fg),var(--surface) 92%);
+    --shadow:0 1px 2px color-mix(in oklab,#000,transparent 60%),0 14px 34px color-mix(in oklab,#000,transparent 64%);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);
+    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    transition:background .25s ease,color .25s ease;}
+  a{color:inherit;text-decoration:none;}
+  button{font:inherit;cursor:pointer;background:none;border:0;color:inherit;}
+  svg{display:block;}
+  h1,h2,h3{margin:0;font-family:var(--font-display);text-wrap:balance;}
+  p{margin:0;text-wrap:pretty;}
+  ::selection{background:var(--accent-line);}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+
+  /* ─── topnav ─────────────────────────────────────────── */
+  .topnav{position:sticky;top:0;z-index:30;height:var(--nav-h);
+    background:color-mix(in oklab,var(--bg),transparent 14%);
+    backdrop-filter:saturate(160%) blur(12px);border-bottom:1px solid var(--border);}
+  .topnav-inner{max-width:1180px;margin:0 auto;height:var(--nav-h);padding:0 24px;
+    display:flex;align-items:center;gap:24px;}
+  .brand{display:flex;align-items:center;gap:9px;font-family:var(--font-display);
+    font-weight:700;font-size:17px;letter-spacing:-.02em;}
+  .brand-logo{width:24px;height:24px;border-radius:7px;background:var(--accent);
+    display:grid;place-items:center;color:var(--accent-on);flex:none;}
+  .brand-logo svg{width:15px;height:15px;}
+  .brand-tag{font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.06em;
+    color:var(--accent);background:var(--accent-soft);padding:2px 6px;border-radius:5px;text-transform:uppercase;}
+  .tabs{display:flex;gap:2px;margin-left:6px;background:var(--surface-2);
+    border:1px solid var(--border);border-radius:9px;padding:3px;}
+  .tab{font-size:13px;font-weight:600;color:var(--muted);padding:5px 13px;border-radius:6px;
+    transition:color .15s,background .15s;}
+  .tab[aria-selected="true"]{color:var(--fg);background:var(--surface);box-shadow:var(--shadow);}
+  .nav-right{margin-left:auto;display:flex;align-items:center;gap:14px;}
+  .nav-date{font-family:var(--font-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid var(--border);
+    display:grid;place-items:center;color:var(--muted);transition:color .15s,border-color .15s,background .15s;}
+  .icon-btn:hover{color:var(--fg);border-color:var(--fg);}
+  .icon-btn svg{width:16px;height:16px;}
+  :root[data-theme="dark"] .sun{display:none;}
+  :root:not([data-theme="dark"]) .moon{display:none;}
+
+  /* ─── layout shell ───────────────────────────────────── */
+  .shell{max-width:1180px;margin:0 auto;padding:34px 24px 0;}
+  .layout{display:grid;grid-template-columns:1fr;gap:40px;}
+  @media (min-width:1040px){.layout{grid-template-columns:228px minmax(0,1fr);gap:56px;align-items:start;}}
+  .side{display:none;}
+  @media (min-width:1040px){.side{display:block;}}
+  .side-sticky{position:sticky;top:calc(var(--nav-h) + 28px);}
+  .side-h{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:14px;}
+  .side-nav{display:flex;flex-direction:column;gap:2px;margin-bottom:22px;}
+  .side-nav a{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:7px 10px;border-radius:8px;font-size:13.5px;color:var(--muted);
+    border-left:2px solid transparent;transition:color .15s,background .15s;}
+  .side-nav a:hover{color:var(--fg);background:var(--surface-2);}
+  .side-nav a .n{font-family:var(--font-mono);font-size:11px;color:var(--muted);
+    background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:1px 7px;}
+  .side-div{height:1px;background:var(--border);margin:18px 0;}
+  .side-note{font-size:12px;line-height:1.6;color:var(--muted);}
+  .mail-link{display:inline-flex;align-items:center;gap:7px;margin-top:6px;font-size:13px;
+    color:var(--accent);font-weight:600;}
+  .mail-link svg{width:14px;height:14px;}
+  .mail-link:hover{text-decoration:underline;}
+
+  /* ─── report header ──────────────────────────────────── */
+  .main{min-width:0;padding-bottom:8px;}
+  .kicker{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--accent);}
+  .rep-h1{font-size:clamp(28px,4.4vw,40px);font-weight:700;letter-spacing:-.03em;line-height:1.1;
+    margin:12px 0 0;}
+  .rep-meta{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);margin-top:12px;
+    display:flex;flex-wrap:wrap;gap:6px 14px;font-variant-numeric:tabular-nums;}
+  .rep-meta .dot{color:var(--border);}
+
+  .lead-card{margin-top:22px;background:var(--surface);border:1px solid var(--border);
+    border-radius:14px;padding:22px 24px;position:relative;overflow:hidden;}
+  .lead-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);}
+  .lead-eyebrow{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin-bottom:9px;}
+  .lead-text{font-size:16.5px;line-height:1.74;color:var(--fg);max-width:68ch;}
+  .lead-text .sub{color:var(--muted);}
+  .lead-strong{display:block;margin-top:11px;font-weight:700;font-size:15.5px;letter-spacing:-.01em;}
+  .sup{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);
+    vertical-align:5px;padding:0 1px 0 2px;cursor:pointer;line-height:1;}
+  .sup:hover{text-decoration:underline;}
+
+  .tally{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
+    padding:5px 11px;border-radius:999px;font-variant-numeric:tabular-nums;}
+  .chip .cdot{width:7px;height:7px;border-radius:999px;}
+  .chip-plain{background:var(--surface-2);color:var(--muted);border:1px solid var(--border);}
+  .chip-threat{background:var(--threat-soft);color:var(--threat-ink);}
+  .chip-threat .cdot{background:var(--danger);}
+  .chip-opp{background:var(--opp-soft);color:var(--opp-ink);}
+  .chip-opp .cdot{background:var(--success);}
+  .chip-accent{background:var(--accent-soft);color:var(--accent);}
+  .chip-accent .cdot{background:var(--accent);}
+
+  /* ─── section ────────────────────────────────────────── */
+  .sec{margin-top:46px;scroll-margin-top:calc(var(--nav-h) + 18px);}
+  .sec-head{display:flex;align-items:center;gap:13px;}
+  .sec-mark{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);
+    background:var(--surface);display:grid;place-items:center;color:var(--accent);flex:none;}
+  .sec-mark svg{width:18px;height:18px;}
+  .sec-titles{flex:1;min-width:0;}
+  .sec-title{font-size:20px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:baseline;gap:10px;}
+  .sec-num{font-family:var(--font-mono);font-size:12px;color:var(--muted);font-weight:600;}
+  .sec-count{font-family:var(--font-mono);font-size:12px;color:var(--muted);
+    background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:2px 9px;}
+  .sec-desc{font-size:13px;color:var(--muted);margin-top:3px;}
+  .sec-rule{height:1px;background:var(--fg);opacity:.9;margin:14px 0 0;}
+  :root[data-theme="dark"] .sec-rule{opacity:.5;}
+
+  .cards{display:flex;flex-direction:column;gap:16px;margin-top:18px;}
+
+  /* ─── intel card ─────────────────────────────────────── */
+  .intel{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    overflow:hidden;transition:border-color .18s,box-shadow .18s,transform .18s;}
+  .intel:hover{border-color:color-mix(in oklab,var(--fg),var(--border) 70%);box-shadow:var(--shadow);}
+  .intel.flash{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-line);}
+  .intel-body{padding:18px 20px 16px;}
+  .intel-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .src{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;}
+  .src-ico{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;flex:none;}
+  .src-ico svg{width:13px;height:13px;}
+  .src.official .src-ico{background:var(--accent-soft);color:var(--accent);}
+  .src.community .src-ico{background:var(--surface-2);color:var(--muted);border:1px solid var(--border);}
+  .src.official .src-name{color:var(--fg);}
+  .src-chan{color:var(--muted);font-weight:500;}
+  .tier{font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.04em;
+    padding:2px 6px;border-radius:5px;}
+  .tier.t1{color:var(--accent);background:var(--accent-soft);}
+  .tier.t2{color:var(--muted);background:var(--surface-2);border:1px solid var(--border);}
+  .impact{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+    padding:4px 11px;border-radius:999px;white-space:nowrap;}
+  .impact .idot{width:7px;height:7px;border-radius:999px;}
+  .impact-threat{background:var(--threat-soft);color:var(--threat-ink);}
+  .impact-threat .idot{background:var(--danger);}
+  .impact-opp{background:var(--opp-soft);color:var(--opp-ink);}
+  .impact-opp .idot{background:var(--success);}
+  .impact-neutral{background:var(--neutral-soft);color:var(--muted);}
+  .impact-neutral .idot{background:var(--muted);}
+
+  .intel-title-row{margin-top:13px;display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap;}
+  .intel-title{font-family:var(--font-display);font-size:17px;font-weight:700;letter-spacing:-.01em;
+    line-height:1.4;color:var(--fg);transition:color .15s;}
+  .intel-title:hover{color:var(--accent);}
+  .intel-title .ext{font-size:12px;color:var(--muted);vertical-align:2px;margin-left:1px;}
+  .stage{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--muted);
+    background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 7px;
+    align-self:center;}
+  .tags{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .tag{font-size:11.5px;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:2px 9px;}
+  .intel-sum{margin-top:11px;font-size:14.5px;line-height:1.66;color:color-mix(in oklab,var(--fg),var(--muted) 18%);}
+
+  .note{margin-top:13px;border-radius:9px;padding:10px 13px;font-size:13.5px;line-height:1.6;
+    border-left:3px solid var(--muted);}
+  .note-k{font-weight:700;}
+  .note-threat{background:var(--threat-soft);color:var(--threat-ink);border-left-color:var(--danger);}
+  .note-threat .note-k{color:var(--danger);}
+  .note-opp{background:var(--opp-soft);color:var(--opp-ink);border-left-color:var(--success);}
+  .note-opp .note-k{color:var(--success);}
+  .note-neutral{background:var(--neutral-soft);color:color-mix(in oklab,var(--muted),var(--fg) 26%);border-left-color:var(--muted);}
+  .note-neutral .note-k{color:var(--muted);}
+
+  .intel-foot{margin-top:14px;display:flex;align-items:center;gap:16px;}
+  .metrics{display:flex;align-items:center;gap:15px;}
+  .metric{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);
+    font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .metric svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.7;
+    stroke-linecap:round;stroke-linejoin:round;opacity:.8;}
+  .cite-tag{margin-left:auto;font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--muted);
+    border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer;transition:color .15s,border-color .15s;}
+  .cite-tag:hover{color:var(--accent);border-color:var(--accent);}
+
+  /* ── 出处行（Citation Line）— 一等元素，强制独立、醒目、可点 ── */
+  .cite-line{display:flex;align-items:center;gap:9px;min-height:46px;padding:11px 20px;
+    border-top:1px solid var(--border);background:var(--cite-bg-2);
+    font-size:13.5px;transition:background .15s;flex-wrap:wrap;}
+  .cite-line.official{background:var(--cite-bg);}
+  .cite-line:hover{background:color-mix(in oklab,var(--accent),var(--surface) 86%);}
+  .cl-ico{width:15px;height:15px;flex:none;color:var(--muted);}
+  .cite-line.official .cl-ico{color:var(--accent);}
+  .cl-domain{font-weight:700;font-family:var(--font-mono);font-size:13px;letter-spacing:-.01em;}
+  .cite-line.official .cl-domain{color:var(--accent);}
+  .cite-line.community .cl-domain{color:color-mix(in oklab,var(--fg),var(--muted) 30%);}
+  .cl-sep{color:var(--border);}
+  .cl-date{font-family:var(--font-mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .cl-cta{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-weight:600;
+    font-size:13px;color:var(--accent);}
+  .cl-cta svg{width:13px;height:13px;}
+
+  /* ─── references ─────────────────────────────────────── */
+  .refs{margin-top:48px;scroll-margin-top:calc(var(--nav-h) + 18px);}
+  .ref-h{display:flex;align-items:baseline;gap:10px;}
+  .ref-h h2{font-size:18px;font-weight:700;letter-spacing:-.01em;}
+  .ref-h .sub{font-family:var(--font-mono);font-size:12px;color:var(--muted);}
+  .ref-list{margin-top:14px;border-top:1px solid var(--border);}
+  .ref-item{display:grid;grid-template-columns:30px 1fr;gap:12px;padding:15px 4px;
+    border-bottom:1px solid var(--border);scroll-margin-top:calc(var(--nav-h) + 18px);transition:background .2s;border-radius:6px;}
+  .ref-item.flash{background:var(--accent-soft);}
+  .ref-n{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--accent);cursor:pointer;}
+  .ref-title{font-size:14.5px;font-weight:600;color:var(--fg);line-height:1.45;}
+  .ref-src{font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-top:3px;}
+  .ref-url{display:block;margin-top:5px;font-family:var(--font-mono);font-size:12px;color:var(--accent);
+    word-break:break-all;line-height:1.4;}
+  .ref-url:hover{text-decoration:underline;}
+
+  /* ─── weekly empty state ─────────────────────────────── */
+  #view-weekly{display:none;}
+  .weekly-empty{margin-top:30px;border:1px dashed var(--border);border-radius:16px;
+    padding:40px 28px;text-align:center;background:var(--surface);}
+  .we-badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:11px;
+    letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);
+    padding:5px 12px;border-radius:999px;}
+  .we-h{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-top:16px;}
+  .we-sub{font-size:14px;color:var(--muted);margin-top:8px;}
+  .we-next{font-family:var(--font-mono);font-size:13px;color:var(--fg);font-weight:600;margin-top:4px;}
+  .we-rows{max-width:440px;margin:26px auto 0;display:flex;flex-direction:column;gap:8px;text-align:left;}
+  .we-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--border);
+    border-radius:10px;color:var(--muted);font-size:14px;background:var(--surface-2);}
+  .we-row .wn{font-family:var(--font-mono);font-size:12px;color:var(--muted);
+    width:22px;height:22px;border-radius:6px;display:grid;place-items:center;
+    background:var(--surface);border:1px solid var(--border);flex:none;}
+
+  /* ─── footer ─────────────────────────────────────────── */
+  .pagefoot{max-width:1180px;margin:54px auto 0;padding:26px 24px 44px;border-top:1px solid var(--border);}
+  .foot-grid{display:flex;flex-wrap:wrap;gap:18px;justify-content:space-between;align-items:flex-start;}
+  .foot-brand{font-family:var(--font-display);font-weight:700;font-size:15px;}
+  .foot-note{font-size:12.5px;color:var(--muted);line-height:1.7;max-width:54ch;margin-top:6px;}
+  .foot-links{display:flex;gap:18px;font-size:13px;}
+  .foot-links a{color:var(--muted);}
+  .foot-links a:hover{color:var(--accent);}
+
+  /* ─── responsive ─────────────────────────────────────── */
+  @media (max-width:680px){
+    .topnav-inner{gap:12px;padding:0 16px;}
+    .brand-tag{display:none;}
+    .nav-date{display:none;}
+    .shell{padding:24px 16px 0;}
+    .tab{padding:5px 10px;font-size:12.5px;}
+    .intel-body{padding:16px;}
+    .cite-line{padding:11px 16px;}
+    .impact{margin-left:0;}
+    .intel-top{gap:8px;}
+  }
+  @media (max-width:420px){
+    .cl-cta{margin-left:0;width:100%;margin-top:2px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topnav" data-od-id="topnav">
+  <div class="topnav-inner">
+    <div class="brand">
+      <span class="brand-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none"/></svg>
+      </span>
+      Network&nbsp;Intel
+      <span class="brand-tag">内部情报</span>
+    </div>
+    <div class="tabs" role="tablist" aria-label="报告类型">
+      <button class="tab" id="tab-daily" role="tab" aria-selected="true">日报</button>
+      <button class="tab" id="tab-weekly" role="tab" aria-selected="false">周报</button>
+    </div>
+    <div class="nav-right">
+      <span class="nav-date">2026-06-01 · 09:30 PT</span>
+      <button class="icon-btn" id="theme-btn" aria-label="切换深色 / 浅色">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <div class="layout">
+
+    <!-- 侧栏导航（≥1040px）-->
+    <aside class="side" aria-label="报告导航">
+      <div class="side-sticky">
+        <div class="side-h">本期 · 2026-06-01</div>
+        <nav class="side-nav">
+          <a data-jump="lead">本期导语<span class="n">导语</span></a>
+          <a data-jump="sec-competitor">竞品动态<span class="n">2</span></a>
+          <a data-jump="sec-sentiment">用户舆情<span class="n">3</span></a>
+          <a data-jump="sec-industry">行业要闻<span class="n">1</span></a>
+          <a data-jump="refs">参考来源<span class="n">6</span></a>
+        </nav>
+        <div class="side-div"></div>
+        <div class="side-note">
+          数据融合 · 双路<br>
+          UNIFI_CHANNELS Supabase（一手官方）<br>
+          + 个人情报流 Reddit / YouTube
+          <a class="mail-link" href="email-daily.html" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+            邮件推送版本
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 主体 -->
+    <main class="main">
+
+      <!-- 日报视图 -->
+      <div id="view-daily">
+
+        <section data-od-id="report-header" id="lead">
+          <div class="kicker">Network Intel · 内部竞品情报</div>
+          <h1 class="rep-h1">2026 年 6 月 1 日 · 日报</h1>
+          <div class="rep-meta">
+            <span>覆盖 2026-06-01</span><span class="dot">·</span>
+            <span>09:30 PT 生成</span><span class="dot">·</span>
+            <span>report.json · daily</span>
+          </div>
+
+          <div class="lead-card">
+            <div class="lead-eyebrow">本期导语 · Opus 策展</div>
+            <p class="lead-text">
+              今日 UniFi 集中放量：<span>UniFi OS 全系列升级 5.1.15 RC</span><a class="sup" data-jump="item-1" role="link" tabindex="0">1</a>，<span>5G&nbsp;Backup 正式发布</span><a class="sup" data-jump="item-2" role="link" tabindex="0">2</a>；<span class="sub">社区侧 5G 选网体验成为新痛点</span><a class="sup" data-jump="item-3" role="link" tabindex="0">3</a><span class="sub">，旗舰 E7 / U7 Pro XG 信号表现持续被质疑</span><a class="sup" data-jump="item-4" role="link" tabindex="0">4</a><span class="sub">；同时有用户从 Aruba 迁移到 Ubiquiti</span><a class="sup" data-jump="item-5" role="link" tabindex="0">5</a><span class="sub">。</span>
+              <span class="lead-strong">两记硬信号施压，两记差异化机会。</span>
+            </p>
+          </div>
+
+          <div class="tally">
+            <span class="chip chip-plain"><span class="cdot"></span>信号 6</span>
+            <span class="chip chip-threat"><span class="cdot"></span>威胁 2</span>
+            <span class="chip chip-opp"><span class="cdot"></span>机会 2</span>
+            <span class="chip chip-plain"><span class="cdot"></span>中性 2</span>
+            <span class="chip chip-accent"><span class="cdot"></span>官方源 3</span>
+          </div>
+        </section>
+
+        <!-- 竞品动态 -->
+        <section class="sec" data-od-id="sec-competitor" id="sec-competitor">
+          <div class="sec-head">
+            <span class="sec-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>
+            </span>
+            <div class="sec-titles">
+              <div class="sec-title"><span class="sec-num">01</span>竞品动态<span class="sec-count">2 条</span></div>
+              <div class="sec-desc">UniFi 官方新品 / 固件 / 发布动作</div>
+            </div>
+          </div>
+          <div class="sec-rule"></div>
+
+          <div class="cards">
+            <!-- 卡片 1 -->
+            <article class="intel" id="item-1">
+              <div class="intel-body">
+                <div class="intel-top">
+                  <span class="src official">
+                    <span class="src-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V5l-8-3z"/><path d="m8.5 12 2.2 2.2L15.5 9.5"/></svg></span>
+                    <span class="src-name">UniFi 官方</span><span class="src-chan">· Release</span>
+                  </span>
+                  <span class="tier t1">一手官方</span>
+                  <span class="impact impact-threat"><span class="idot"></span>威胁</span>
+                </div>
+                <div class="intel-title-row">
+                  <a class="intel-title" href="https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/84641421-6507-48af-914f-c0cb5f704c76" target="_blank" rel="noopener">UniFi OS — Express 7　v5.1.15 <span class="ext">↗</span></a>
+                  <span class="stage">RC</span>
+                </div>
+                <div class="tags"><span class="tag">新品</span><span class="tag">竞品</span></div>
+                <p class="intel-sum">UniFi Express 7 跟进 UniFi OS 5.1.15 RC，核心系统栈更新。Express 系列是 UniFi 主打的一体化入门网关。</p>
+                <div class="note note-threat"><span class="note-k">威胁研判 · </span>Express 7 是 UniFi 入门一体网关旗舰，固件迭代节奏直接对标 Omada 入门线，需关注其功能补齐速度。</div>
+                <div class="intel-foot">
+                  <div class="metrics">
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>376</span>
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M21 11.5a8 8 0 0 1-11.5 7.2L3 20l1.3-6.4A8 8 0 1 1 21 11.5z"/></svg>3</span>
+                  </div>
+                  <span class="cite-tag" data-jump="ref-1">¹ 溯源</span>
+                </div>
+              </div>
+              <a class="cite-line official" href="https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/84641421-6507-48af-914f-c0cb5f704c76" target="_blank" rel="noopener">
+                <svg class="cl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                <span class="cl-domain">community.ui.com</span><span class="cl-sep">·</span><span class="cl-date">2026-06-01</span>
+                <span class="cl-cta">查看原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              </a>
+            </article>
+
+            <!-- 卡片 2 -->
+            <article class="intel" id="item-2">
+              <div class="intel-body">
+                <div class="intel-top">
+                  <span class="src official">
+                    <span class="src-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V5l-8-3z"/><path d="m8.5 12 2.2 2.2L15.5 9.5"/></svg></span>
+                    <span class="src-name">UniFi 官方</span><span class="src-chan">· Blog</span>
+                  </span>
+                  <span class="tier t1">一手官方</span>
+                  <span class="impact impact-threat"><span class="idot"></span>威胁</span>
+                </div>
+                <div class="intel-title-row">
+                  <a class="intel-title" href="https://blog.ui.com/article/introducing-unifi-5g-backup" target="_blank" rel="noopener">Introducing UniFi 5G Backup <span class="ext">↗</span></a>
+                </div>
+                <div class="tags"><span class="tag">新品</span><span class="tag">竞品</span></div>
+                <p class="intel-sum">UniFi 推出 5G 备份方案，PoE 即插，为网关提供 5G failover 连接，补齐 WAN 冗余短板。</p>
+                <div class="note note-threat"><span class="note-k">威胁研判 · </span>5G Backup 直接补齐 UniFi 在 WAN 冗余 / 断网备份上的短板，Omada 网关线在企业连续性场景需对标。</div>
+                <div class="intel-foot">
+                  <div class="metrics">
+                    <span class="metric" style="opacity:.85;">官方博客发布</span>
+                  </div>
+                  <span class="cite-tag" data-jump="ref-2">² 溯源</span>
+                </div>
+              </div>
+              <a class="cite-line official" href="https://blog.ui.com/article/introducing-unifi-5g-backup" target="_blank" rel="noopener">
+                <svg class="cl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                <span class="cl-domain">blog.ui.com</span><span class="cl-sep">·</span><span class="cl-date">2026-05-21</span>
+                <span class="cl-cta">查看原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <!-- 用户舆情 -->
+        <section class="sec" data-od-id="sec-sentiment" id="sec-sentiment">
+          <div class="sec-head">
+            <span class="sec-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><path d="M19 10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1v3l-4-3h-4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z"/></svg>
+            </span>
+            <div class="sec-titles">
+              <div class="sec-title"><span class="sec-num">02</span>用户舆情<span class="sec-count">3 条</span></div>
+              <div class="sec-desc">双路融合 · 官方社区 + Reddit 热帖</div>
+            </div>
+          </div>
+          <div class="sec-rule"></div>
+
+          <div class="cards">
+            <!-- 卡片 3 -->
+            <article class="intel" id="item-3">
+              <div class="intel-body">
+                <div class="intel-top">
+                  <span class="src official">
+                    <span class="src-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8 8 0 0 1-11.5 7.2L3 20l1.3-6.4A8 8 0 1 1 21 11.5z"/></svg></span>
+                    <span class="src-name">UniFi 社区</span><span class="src-chan">· Community</span>
+                  </span>
+                  <span class="tier t1">官方平台</span>
+                  <span class="impact impact-opp"><span class="idot"></span>机会</span>
+                </div>
+                <div class="intel-title-row">
+                  <a class="intel-title" href="https://community.ui.com/questions/U5G-manual-carrier-select-override-badly-needed/eb165625-81e2-46b9-8dac-01d7e8339e99" target="_blank" rel="noopener">U5G — manual carrier select / override badly needed! <span class="ext">↗</span></a>
+                </div>
+                <div class="tags"><span class="tag">舆情</span></div>
+                <p class="intel-sum">用户强烈要求 UniFi 5G 设备增加手动运营商选择 / 覆盖功能，吐槽当前自动选网在多运营商环境下不可控。</p>
+                <div class="note note-opp"><span class="note-k">机会研判 · </span>UniFi 5G 选网体验是真实痛点；Omada 若在 5G / 蜂窝备份方案中提供手动运营商控制，可作为差异化卖点。</div>
+                <div class="intel-foot">
+                  <div class="metrics">
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>2</span>
+                  </div>
+                  <span class="cite-tag" data-jump="ref-3">³ 溯源</span>
+                </div>
+              </div>
+              <a class="cite-line official" href="https://community.ui.com/questions/U5G-manual-carrier-select-override-badly-needed/eb165625-81e2-46b9-8dac-01d7e8339e99" target="_blank" rel="noopener">
+                <svg class="cl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                <span class="cl-domain">community.ui.com</span><span class="cl-sep">·</span><span class="cl-date">2026-06-01</span>
+                <span class="cl-cta">查看原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              </a>
+            </article>
+
+            <!-- 卡片 4 -->
+            <article class="intel" id="item-4">
+              <div class="intel-body">
+                <div class="intel-top">
+                  <span class="src community">
+                    <span class="src-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/><path d="M8.5 16c2 1.4 5 1.4 7 0"/><circle cx="18" cy="6.5" r="1.6"/></svg></span>
+                    <span class="src-name">Reddit</span><span class="src-chan">· r/Ubiquiti</span>
+                  </span>
+                  <span class="tier t2">社区二手</span>
+                  <span class="impact impact-opp"><span class="idot"></span>机会</span>
+                </div>
+                <div class="intel-title-row">
+                  <a class="intel-title" href="https://www.reddit.com/r/Ubiquiti/comments/1ts70er/overall_impressed_u7_pro_xg_is_hot_garbage/" target="_blank" rel="noopener">Overall impressed, U7 Pro XG is hot garbage <span class="ext">↗</span></a>
+                </div>
+                <div class="tags"><span class="tag">舆情</span></div>
+                <p class="intel-sum">用户升级 10Gb 网络后对 Ubiquiti 整体满意，但抓出 U7 Pro XG AP 信号覆盖极差，换到 E7 才解决。高热度讨论。</p>
+                <div class="note note-opp"><span class="note-k">机会研判 · </span>UniFi 旗舰 AP 信号表现与定价不匹配是反复出现的舆情；Omada 高端 AP 可在「覆盖一致性」上做文章。</div>
+                <div class="intel-foot">
+                  <div class="metrics">
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>152</span>
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M21 11.5a8 8 0 0 1-11.5 7.2L3 20l1.3-6.4A8 8 0 1 1 21 11.5z"/></svg>80</span>
+                  </div>
+                  <span class="cite-tag" data-jump="ref-4">⁴ 溯源</span>
+                </div>
+              </div>
+              <a class="cite-line community" href="https://www.reddit.com/r/Ubiquiti/comments/1ts70er/overall_impressed_u7_pro_xg_is_hot_garbage/" target="_blank" rel="noopener">
+                <svg class="cl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                <span class="cl-domain">reddit.com/r/Ubiquiti</span><span class="cl-sep">·</span><span class="cl-date">2026-05-31</span>
+                <span class="cl-cta">查看原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              </a>
+            </article>
+
+            <!-- 卡片 5 -->
+            <article class="intel" id="item-5">
+              <div class="intel-body">
+                <div class="intel-top">
+                  <span class="src community">
+                    <span class="src-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12.5" r="1.3" fill="currentColor" stroke="none"/><path d="M8.5 16c2 1.4 5 1.4 7 0"/><circle cx="18" cy="6.5" r="1.6"/></svg></span>
+                    <span class="src-name">Reddit</span><span class="src-chan">· r/Ubiquiti</span>
+                  </span>
+                  <span class="tier t2">社区二手</span>
+                  <span class="impact impact-neutral"><span class="idot"></span>中性</span>
+                </div>
+                <div class="intel-title-row">
+                  <a class="intel-title" href="https://www.reddit.com/r/Ubiquiti/comments/1trzyy3/got_tired_of_their_slow_internet_so_i_upgraded_it/" target="_blank" rel="noopener">Got tired of their slow internet so I upgraded it <span class="ext">↗</span></a>
+                </div>
+                <div class="tags"><span class="tag">舆情</span><span class="tag">竞品</span></div>
+                <p class="intel-sum">用户在酒店把 Aruba 设备换成 Ubiquiti 方案，网速从 5Mbps 提升到 100+Mbps。高热度帖。</p>
+                <div class="note note-neutral"><span class="note-k">中性研判 · </span>Aruba → Ubiquiti 的迁移案例，反映 SMB 市场对性价比方案的持续需求；Omada 同样是 Aruba Instant On 的替代选项，可关注该类换机场景。</div>
+                <div class="intel-foot">
+                  <div class="metrics">
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>553</span>
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M21 11.5a8 8 0 0 1-11.5 7.2L3 20l1.3-6.4A8 8 0 1 1 21 11.5z"/></svg>82</span>
+                  </div>
+                  <span class="cite-tag" data-jump="ref-5">⁵ 溯源</span>
+                </div>
+              </div>
+              <a class="cite-line community" href="https://www.reddit.com/r/Ubiquiti/comments/1trzyy3/got_tired_of_their_slow_internet_so_i_upgraded_it/" target="_blank" rel="noopener">
+                <svg class="cl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                <span class="cl-domain">reddit.com/r/Ubiquiti</span><span class="cl-sep">·</span><span class="cl-date">2026-05-31</span>
+                <span class="cl-cta">查看原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <!-- 行业要闻 -->
+        <section class="sec" data-od-id="sec-industry" id="sec-industry">
+          <div class="sec-head">
+            <span class="sec-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.2"/><path d="M7.5 7.5a6 6 0 0 0 0 9M16.5 16.5a6 6 0 0 0 0-9M4.7 4.7a10 10 0 0 0 0 14.6M19.3 19.3a10 10 0 0 0 0-14.6"/></svg>
+            </span>
+            <div class="sec-titles">
+              <div class="sec-title"><span class="sec-num">03</span>行业要闻<span class="sec-count">1 条</span></div>
+              <div class="sec-desc">KOL / 媒体 · 生态与内容势能</div>
+            </div>
+          </div>
+          <div class="sec-rule"></div>
+
+          <div class="cards">
+            <!-- 卡片 6 -->
+            <article class="intel" id="item-6">
+              <div class="intel-body">
+                <div class="intel-top">
+                  <span class="src community">
+                    <span class="src-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="3.5"/><path d="m10 9.5 5 2.5-5 2.5z" fill="currentColor" stroke="none"/></svg></span>
+                    <span class="src-name">YouTube</span><span class="src-chan">· Unified IT</span>
+                  </span>
+                  <span class="tier t2">社区二手</span>
+                  <span class="impact impact-neutral"><span class="idot"></span>中性</span>
+                </div>
+                <div class="intel-title-row">
+                  <a class="intel-title" href="https://www.youtube.com/watch?v=SDcPaKXC_u8" target="_blank" rel="noopener">UniFi 网络架构与基础知识系列 <span class="ext">↗</span></a>
+                </div>
+                <div class="tags"><span class="tag">行业</span></div>
+                <p class="intel-sum">KOL 频道系统介绍 UniFi 网络架构，高播放高认可，反映 UniFi 生态的内容营销势能。</p>
+                <div class="note note-neutral"><span class="note-k">中性研判 · </span>UniFi 的 KOL / 社区内容生态是其品牌护城河，Omada 可参考其教程化内容运营。</div>
+                <div class="intel-foot">
+                  <div class="metrics">
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>7,083</span>
+                    <span class="metric"><svg viewBox="0 0 24 24"><path d="M7 10v11M7 10l4.5-7.5a1.8 1.8 0 0 1 3 1.7L13.5 9H19a2 2 0 0 1 2 2.4l-1.3 6A2 2 0 0 1 17.8 21H7"/></svg>468</span>
+                  </div>
+                  <span class="cite-tag" data-jump="ref-6">⁶ 溯源</span>
+                </div>
+              </div>
+              <a class="cite-line community" href="https://www.youtube.com/watch?v=SDcPaKXC_u8" target="_blank" rel="noopener">
+                <svg class="cl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+                <span class="cl-domain">youtube.com</span><span class="cl-sep">·</span><span class="cl-date">2026-05-31</span>
+                <span class="cl-cta">查看原文 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <!-- 参考来源 -->
+        <section class="refs" data-od-id="references" id="refs">
+          <div class="ref-h">
+            <h2>参考来源</h2><span class="sub">References · 编号对应正文上标</span>
+          </div>
+          <div class="ref-list">
+            <div class="ref-item" id="ref-1">
+              <span class="ref-n" data-jump="item-1">[1]</span>
+              <div>
+                <div class="ref-title">UniFi OS — Express 7 v5.1.15 (RC)</div>
+                <div class="ref-src">community.ui.com · 2026-06-01 · 一手官方</div>
+                <a class="ref-url" href="https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/84641421-6507-48af-914f-c0cb5f704c76" target="_blank" rel="noopener">https://community.ui.com/releases/UniFi-OS-Express-7-5-1-15/84641421-6507-48af-914f-c0cb5f704c76</a>
+              </div>
+            </div>
+            <div class="ref-item" id="ref-2">
+              <span class="ref-n" data-jump="item-2">[2]</span>
+              <div>
+                <div class="ref-title">Introducing UniFi 5G Backup</div>
+                <div class="ref-src">blog.ui.com · 2026-05-21 · 一手官方</div>
+                <a class="ref-url" href="https://blog.ui.com/article/introducing-unifi-5g-backup" target="_blank" rel="noopener">https://blog.ui.com/article/introducing-unifi-5g-backup</a>
+              </div>
+            </div>
+            <div class="ref-item" id="ref-3">
+              <span class="ref-n" data-jump="item-3">[3]</span>
+              <div>
+                <div class="ref-title">U5G — manual carrier select / override badly needed</div>
+                <div class="ref-src">community.ui.com · 2026-06-01 · 官方平台</div>
+                <a class="ref-url" href="https://community.ui.com/questions/U5G-manual-carrier-select-override-badly-needed/eb165625-81e2-46b9-8dac-01d7e8339e99" target="_blank" rel="noopener">https://community.ui.com/questions/U5G-manual-carrier-select-override-badly-needed/eb165625-81e2-46b9-8dac-01d7e8339e99</a>
+              </div>
+            </div>
+            <div class="ref-item" id="ref-4">
+              <span class="ref-n" data-jump="item-4">[4]</span>
+              <div>
+                <div class="ref-title">Overall impressed, U7 Pro XG is hot garbage</div>
+                <div class="ref-src">reddit.com/r/Ubiquiti · 2026-05-31 · 社区二手</div>
+                <a class="ref-url" href="https://www.reddit.com/r/Ubiquiti/comments/1ts70er/overall_impressed_u7_pro_xg_is_hot_garbage/" target="_blank" rel="noopener">https://www.reddit.com/r/Ubiquiti/comments/1ts70er/overall_impressed_u7_pro_xg_is_hot_garbage/</a>
+              </div>
+            </div>
+            <div class="ref-item" id="ref-5">
+              <span class="ref-n" data-jump="item-5">[5]</span>
+              <div>
+                <div class="ref-title">Got tired of their slow internet so I upgraded it</div>
+                <div class="ref-src">reddit.com/r/Ubiquiti · 2026-05-31 · 社区二手</div>
+                <a class="ref-url" href="https://www.reddit.com/r/Ubiquiti/comments/1trzyy3/got_tired_of_their_slow_internet_so_i_upgraded_it/" target="_blank" rel="noopener">https://www.reddit.com/r/Ubiquiti/comments/1trzyy3/got_tired_of_their_slow_internet_so_i_upgraded_it/</a>
+              </div>
+            </div>
+            <div class="ref-item" id="ref-6">
+              <span class="ref-n" data-jump="item-6">[6]</span>
+              <div>
+                <div class="ref-title">UniFi 网络架构与基础知识（Unified IT）</div>
+                <div class="ref-src">youtube.com · 2026-05-31 · 社区二手</div>
+                <a class="ref-url" href="https://www.youtube.com/watch?v=SDcPaKXC_u8" target="_blank" rel="noopener">https://www.youtube.com/watch?v=SDcPaKXC_u8</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /view-daily -->
+
+      <!-- 周报视图（诚实空状态）-->
+      <section id="view-weekly" data-od-id="weekly" aria-hidden="true">
+        <div class="weekly-empty">
+          <span class="we-badge">周报 · 深度精选</span>
+          <div class="we-h">本周周报尚未生成</div>
+          <p class="we-sub">周报每周一 09:30 PT 自动生成，含环比趋势与数据看板。</p>
+          <p class="we-next">下一期 · 2026-06-08（周一）</p>
+          <div class="we-rows">
+            <div class="we-row"><span class="wn">1</span>本周竞品动作盘点</div>
+            <div class="we-row"><span class="wn">2</span>用户舆情趋势 · Omada vs UniFi</div>
+            <div class="we-row"><span class="wn">3</span>store 动向 · 价格 / 库存 / 上架</div>
+            <div class="we-row"><span class="wn">4</span>行业风向</div>
+            <div class="we-row"><span class="wn">5</span>数据看板 · 信号量 / 各源贡献 / 热度 Top10</div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer class="pagefoot">
+  <div class="foot-grid">
+    <div>
+      <div class="foot-brand">Network Intel</div>
+      <p class="foot-note">内部竞品 &amp; 舆情情报 · 仅限 TP-Link 网络产品团队。每条结论可一键溯源验证 —— 这是策展报告与普通信息聚合的本质区别。</p>
+    </div>
+    <div class="foot-links">
+      <a href="email-daily.html" target="_blank" rel="noopener">邮件版</a>
+      <a data-jump="refs" href="#refs">参考来源</a>
+      <a href="https://www.feishu.cn/docx/TXrNdLo7uoc8mfx9NIec45Z7n8c" target="_blank" rel="noopener">PRD ↗</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var root=document.documentElement;
+    var KEY='ni-theme';
+    var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // 主题切换 + 持久化
+    function setTheme(t){root.setAttribute('data-theme',t);try{localStorage.setItem(KEY,t);}catch(e){}}
+    try{var saved=localStorage.getItem(KEY);if(saved){setTheme(saved);}}catch(e){}
+    var tb=document.getElementById('theme-btn');
+    tb.addEventListener('click',function(){
+      setTheme(root.getAttribute('data-theme')==='dark'?'light':'dark');
+    });
+
+    // 溯源跳转（偏移滚动 + 闪烁高亮，避免 scrollIntoView）
+    function jump(id){
+      var el=document.getElementById(id);if(!el)return;
+      var y=el.getBoundingClientRect().top+window.pageYOffset-(parseInt(getComputedStyle(root).getPropertyValue('--nav-h'))||60)-16;
+      window.scrollTo({top:y,behavior:reduce?'auto':'smooth'});
+      el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash');
+      window.setTimeout(function(){el.classList.remove('flash');},1500);
+    }
+    document.addEventListener('click',function(e){
+      var a=e.target.closest('[data-jump]');
+      if(a){e.preventDefault();jump(a.getAttribute('data-jump'));}
+    });
+    document.addEventListener('keydown',function(e){
+      if((e.key==='Enter'||e.key===' ')){
+        var a=e.target.closest&&e.target.closest('[data-jump]');
+        if(a){e.preventDefault();jump(a.getAttribute('data-jump'));}
+      }
+    });
+
+    // 日报 / 周报 视图切换
+    var td=document.getElementById('tab-daily'),tw=document.getElementById('tab-weekly');
+    var vd=document.getElementById('view-daily'),vw=document.getElementById('view-weekly');
+    function show(which){
+      var daily=which==='daily';
+      td.setAttribute('aria-selected',daily);tw.setAttribute('aria-selected',!daily);
+      vd.style.display=daily?'':'none';vw.style.display=daily?'none':'block';
+      vw.setAttribute('aria-hidden',daily);
+      window.scrollTo({top:0,behavior:reduce?'auto':'smooth'});
+    }
+    td.addEventListener('click',function(){show('daily');});
+    tw.addEventListener('click',function(){show('weekly');});
+  })();
+</script>
+</body>
+</html>
