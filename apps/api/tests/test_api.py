@@ -138,3 +138,27 @@ def test_items_search_q(client):
 def test_items_search_no_match(client):
     r = client.get("/api/items?q=zzz_no_such_term_zzz")
     assert r.json()["count"] == 0
+
+
+def test_archive_reflects_newly_published(client):
+    # WS3: the archive index is DB-derived, so a freshly published report shows
+    # up immediately, while metadata-only historical entries remain unioned in.
+    from nintel.pipeline import build
+    from nintel.review.gate import publish
+
+    doc = build("daily", persist_items=False).dump()
+    # Past date so this fixture doesn't become the "latest" daily for other tests.
+    doc["report_id"] = "2020-01-01-daily"
+    doc["date"] = "2020-01-01"
+    publish("2020-01-01-daily", doc=doc)
+
+    reports = client.get("/api/reports").json()["reports"]
+    ids = {x["id"] for x in reports}
+    assert "2020-01-01-daily" in ids          # newly published -> appears live
+    assert "2026-05-30-daily" in ids          # metadata-only history still present
+
+    entry = next(x for x in reports if x["id"] == "2020-01-01-daily")
+    for k in ("id", "type", "date", "title", "excerpt", "signals", "threats", "opps", "themes"):
+        assert k in entry, f"archive entry missing {k}"
+    assert all(t in {"omada_self", "competitor", "sentiment", "industry",
+                     "pricing", "new_product"} for t in entry["themes"])
