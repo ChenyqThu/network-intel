@@ -90,9 +90,18 @@ class Settings:
     kb_db_path: Path = API_ROOT / "data" / "kb.db"
     fastembed_cache: str | None = None
     knowledge_dir: Path = API_ROOT / "knowledge"
+    # Background-knowledge retrieval backend: local sqlite-vec corpus, or the
+    # kos/gbrain HTTP service. (history retrieval is always local.)
+    kb_backend: str = "local"  # local | gbrain
+    kos_mcp_base: str | None = None
+    kos_oauth_client_id: str | None = None
+    kos_oauth_client_secret: str | None = None
 
     # LLM (only used when llm_enabled)
     anthropic_api_key: str | None = None
+    # Custom Anthropic-compatible endpoint (e.g. a claude-relay-service / crs
+    # gateway). When set, the SDK is pointed here instead of api.anthropic.com.
+    anthropic_base_url: str | None = None
     haiku_model: str = "claude-haiku-4-5-20251001"
     opus_model: str = "claude-opus-4-8"
 
@@ -156,7 +165,12 @@ def get_settings() -> Settings:
         knowledge_dir=Path(
             os.getenv("NINTEL_KNOWLEDGE_DIR", str(API_ROOT / "knowledge"))
         ).resolve(),
+        kb_backend=os.getenv("NINTEL_KB_BACKEND", "local").strip().lower(),
+        kos_mcp_base=os.getenv("KOS_MCP_BASE") or None,
+        kos_oauth_client_id=os.getenv("KOS_OAUTH_CLIENT_ID") or None,
+        kos_oauth_client_secret=os.getenv("KOS_OAUTH_CLIENT_SECRET") or None,
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
+        anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL") or None,
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
         opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),
         # Override to A/B a candidate prompt set (e.g. prompts/variants/).

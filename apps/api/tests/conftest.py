@@ -29,6 +29,16 @@ def _offline_env(tmp_path_factory: pytest.TempPathFactory):
     os.environ["NINTEL_RAG_ENABLED"] = "false"
     os.environ["NINTEL_EMBEDDER"] = "hash"
     os.environ["NINTEL_KB_DB_PATH"] = str(data_dir / "kb.db")
+    os.environ["NINTEL_KB_BACKEND"] = "local"
+    # Hermetic tests: neutralize anything a local apps/api/.env (real creds,
+    # crs/kos endpoints, live sources) would inject via python-dotenv.
+    for _leak in (
+        "SUPABASE_URL", "SUPABASE_KEY", "NOTION_TOKEN", "NOTION_DATABASE_ID",
+        "NOTION_YOUTUBE_DATABASE_ID", "KOS_MCP_BASE", "KOS_OAUTH_CLIENT_ID",
+        "KOS_OAUTH_CLIENT_SECRET", "ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL",
+        "NINTEL_LIVE_SOURCES", "NINTEL_PROMPT_DIR",
+    ):
+        os.environ.pop(_leak, None)
 
     # Reset the cached settings so the env overrides take effect.
     from nintel.config import get_settings

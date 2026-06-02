@@ -58,7 +58,10 @@ def _client():  # pragma: no cover - requires network/SDK
             "NINTEL_LLM_ENABLED=true but ANTHROPIC_API_KEY is not set. "
             "Set the key or leave NINTEL_LLM_ENABLED=false to use the fixture path."
         )
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    kwargs: dict[str, Any] = {"api_key": settings.anthropic_api_key}
+    if settings.anthropic_base_url:  # e.g. a crs / claude-relay-service gateway
+        kwargs["base_url"] = settings.anthropic_base_url
+    return anthropic.Anthropic(**kwargs)
 
 
 @lru_cache(maxsize=4)

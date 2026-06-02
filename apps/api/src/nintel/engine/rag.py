@@ -304,6 +304,16 @@ def retrieve(
     filters: dict | None = None,
     min_score: float = 0.0,
 ) -> list[Hit]:
+    # Background knowledge can be served by the kos/gbrain HTTP service instead
+    # of the local corpus (NINTEL_KB_BACKEND=gbrain). History stays local.
+    if collection == COLLECTION_BACKGROUND and get_settings().kb_backend == "gbrain":
+        from . import gbrain
+
+        return [
+            Hit(text=h.text, score=h.score, metadata=h.metadata)
+            for h in gbrain.search(query_text, k=k)
+            if h.score >= min_score
+        ]
     emb = get_embedder().embed([query_text])[0]
     store = get_store()
     try:
