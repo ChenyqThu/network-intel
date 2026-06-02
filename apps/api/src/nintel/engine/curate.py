@@ -23,6 +23,7 @@ seed as the curation manifest — so output is offline and lossless.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -39,6 +40,16 @@ IMPACT_VOCAB: dict[str, set[str]] = {
 }
 
 REPORT_IDS = {"daily": "2026-06-01-daily", "weekly": "2026-W22-weekly"}
+
+_CITE_RE = re.compile(r"\{\{cite:(\d+)\}\}")
+
+# Selection reason -> re-surface badge (reuses the optional, already-rendered
+# IntelItem.badges field; no contract/schema change).
+_REASON_BADGE = {
+    "resurface:heat": "热度激增",
+    "resurface:sentiment": "情绪反转",
+    "resurface:switch": "切换意图↑",
+}
 
 
 @lru_cache(maxsize=4)
@@ -70,6 +81,7 @@ def curate(
     report_type: str,
     report_id: str | None = None,
     generated_at: str | None = None,
+    reasons: dict[str, str] | None = None,
 ) -> Report:
     """Assemble a validated :class:`Report` from classified items.
 
@@ -89,6 +101,12 @@ def curate(
         from . import llm
 
         doc = llm.curate_report(items, report_type=report_type, report_id=rid)
+        # Guarantee the cite_id <-> reference bijection regardless of LLM output
+        # ordering, then mark re-surfaced items with a badge.
+        doc = assign_cite_ids(doc)
+        if reasons:
+            _apply_resurface_badges(doc, reasons)
+        _assert_citation_integrity(doc)
         return load_report(doc)
 
     return _curate_fixture(items, report_type=report_type, report_id=rid, generated_at=generated_at)
@@ -145,6 +163,86 @@ def _curate_fixture(
 
     _assert_citation_integrity(doc)
     return load_report(doc)
+
+
+def assign_cite_ids(doc: dict[str, Any]) -> dict[str, Any]:
+    """Re-number ``cite_id`` to 1..N in display order and rebuild ``references``.
+
+    Display order = section order × within-section order (what the frontend
+    renders). References are rebuilt from each item by construction, so the
+    item↔reference bijection holds no matter how the LLM ordered things;
+    ``{{cite:N}}`` placeholders and ``cite_refs`` in lead/strategy are remapped.
+    Mutates and returns ``doc``.
+    """
+
+    items_by_id = {it["id"]: it for it in doc.get("items", [])}
+    order: list[str] = []
+    seen: set[str] = set()
+    for sec in doc.get("sections", []):
+        for iid in sec.get("items", []):
+            if iid in items_by_id and iid not in seen:
+                seen.add(iid)
+                order.append(iid)
+    for it in doc.get("items", []):  # any item not placed in a section
+        if it["id"] not in seen:
+            seen.add(it["id"])
+            order.append(it["id"])
+
+    old_to_new: dict[int, int] = {}
+    references: list[dict[str, Any]] = []
+    for new_cite, iid in enumerate(order, start=1):
+        it = items_by_id[iid]
+        old = it.get("cite_id")
+        if isinstance(old, int):
+            old_to_new[old] = new_cite
+        it["cite_id"] = new_cite
+        ref: dict[str, Any] = {
+            "cite_id": new_cite,
+            "title": it["title"],
+            "source_domain": it["source_domain"],
+            "date": it["date"],
+            "url": it["url"],
+        }
+        if it.get("source_tier"):
+            ref["source_tier"] = it["source_tier"]
+        if it.get("tier_label"):
+            ref["tier_label"] = it["tier_label"]
+        references.append(ref)
+    doc["references"] = references
+
+    def _remap(text: str) -> str:
+        return _CITE_RE.sub(
+            lambda m: "{{cite:%d}}" % old_to_new.get(int(m.group(1)), int(m.group(1))),
+            text or "",
+        )
+
+    lead = doc.get("lead")
+    if isinstance(lead, dict):
+        if "text" in lead:
+            lead["text"] = _remap(lead["text"])
+        if isinstance(lead.get("cite_refs"), list):
+            lead["cite_refs"] = [old_to_new.get(n, n) for n in lead["cite_refs"]]
+    strat = doc.get("strategy")
+    if isinstance(strat, dict):
+        if strat.get("body"):
+            strat["body"] = _remap(strat["body"])
+        if isinstance(strat.get("cite_refs"), list):
+            strat["cite_refs"] = [old_to_new.get(n, n) for n in strat["cite_refs"]]
+        if isinstance(strat.get("paras"), list):
+            strat["paras"] = [[p[0], _remap(p[1])] for p in strat["paras"]]
+    return doc
+
+
+def _apply_resurface_badges(doc: dict[str, Any], reasons: dict[str, str]) -> None:
+    """Prepend a turning-point badge to items whose selection reason is a
+    re-surface (keyed by url). Uses the optional, already-rendered badges field."""
+
+    for it in doc.get("items", []):
+        badge = _REASON_BADGE.get(reasons.get(it.get("url"), ""))
+        if badge:
+            badges = list(it.get("badges") or [])
+            if badge not in badges:
+                it["badges"] = [badge] + badges
 
 
 def _assert_citation_integrity(doc: dict[str, Any]) -> None:

@@ -71,7 +71,58 @@ def publish(report_id: str, *, doc: dict[str, Any]) -> Path:
     out = published / f"{report_id}.json"
     _write_json(out, doc)
     _upsert_db(doc)
+    _record_reported(doc)
     return out
+
+
+def _record_reported(doc: dict[str, Any]) -> None:
+    """Record that a published report surfaced its items.
+
+    Writes the item↔report junction and advances each item's reported-state
+    (``report_count`` / ``last_reported_at`` / ``state``) so cross-day dedup and
+    the cooldown work. Tolerant of items not yet persisted in ``intel_items``
+    (e.g. fixture builds) — the junction is still recorded. Idempotent per
+    (content_hash, report_id).
+    """
+    from sqlalchemy import select as sa_select
+
+    from ..engine.ingest import content_hash
+    from ..store.db import session_scope
+    from ..store.models import IntelItemRow, ItemReportRow
+
+    rid = doc["report_id"]
+    rdate = doc.get("date")
+    with session_scope() as session:
+        for it in doc.get("items", []):
+            try:
+                ch = content_hash(it["source"], it["url"], it["title"])
+            except KeyError:
+                continue
+            existing = session.scalar(
+                sa_select(ItemReportRow).where(
+                    ItemReportRow.content_hash == ch,
+                    ItemReportRow.report_id == rid,
+                )
+            )
+            first_time = existing is None
+            if first_time:
+                session.add(
+                    ItemReportRow(
+                        content_hash=ch,
+                        report_id=rid,
+                        report_date=rdate,
+                        cite_id=it.get("cite_id"),
+                    )
+                )
+            row = session.scalar(
+                sa_select(IntelItemRow).where(IntelItemRow.content_hash == ch)
+            )
+            if row is not None:
+                if first_time:
+                    row.report_count = (row.report_count or 0) + 1
+                if rdate and (row.last_reported_at is None or rdate > row.last_reported_at):
+                    row.last_reported_at = rdate
+                row.state = "reported"
 
 
 def _upsert_db(doc: dict[str, Any]) -> None:

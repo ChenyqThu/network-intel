@@ -69,6 +69,14 @@ class Settings:
     llm_enabled: bool = False
     review_mode: str = "manual"  # manual | auto
 
+    # Selection / cross-day re-surface thresholds (WS1). Defaults are chosen so
+    # the offline path is unaffected (it never runs selection into curate).
+    resurface_heat_delta: int = 50      # absolute heat jump that counts as a spike
+    resurface_heat_ratio: float = 2.0   # OR heat >= ratio * previous heat
+    resurface_cooldown_days: int = 3    # min days since last_reported before re-surface
+    select_min_heat: int = 0            # noise floor for a NEW item to qualify
+    select_max_items_daily: int = 12    # cap the selected pool
+
     # LLM (only used when llm_enabled)
     anthropic_api_key: str | None = None
     haiku_model: str = "claude-haiku-4-5-20251001"
@@ -115,6 +123,11 @@ def get_settings() -> Settings:
         connector_mode=os.getenv("NINTEL_CONNECTOR_MODE", "fixture").strip().lower(),
         llm_enabled=_env_bool("NINTEL_LLM_ENABLED", False),
         review_mode=os.getenv("NINTEL_REVIEW_MODE", "manual").strip().lower(),
+        resurface_heat_delta=int(os.getenv("NINTEL_RESURFACE_HEAT_DELTA", "50")),
+        resurface_heat_ratio=float(os.getenv("NINTEL_RESURFACE_HEAT_RATIO", "2.0")),
+        resurface_cooldown_days=int(os.getenv("NINTEL_RESURFACE_COOLDOWN_DAYS", "3")),
+        select_min_heat=int(os.getenv("NINTEL_SELECT_MIN_HEAT", "0")),
+        select_max_items_daily=int(os.getenv("NINTEL_SELECT_MAX_ITEMS_DAILY", "12")),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
         opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),

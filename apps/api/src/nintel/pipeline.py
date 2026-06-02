@@ -17,22 +17,33 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import date
 from typing import Any
 
 from .config import get_settings
 from .contract import Report, validate_against_schema
-from .engine import classify, curate, ingest, render, trend
+from .engine import classify, curate, ingest, render, select, trend
 from .store.db import init_db
 
 
-def build(report_type: str, *, persist_items: bool = True) -> Report:
+def build(
+    report_type: str,
+    *,
+    persist_items: bool = True,
+    as_of: date | None = None,
+) -> Report:
     """Run the full pipeline and return a validated :class:`Report`.
 
     Stages:
       1. ingest   — connectors → normalized, deduped items (→ SQLite)
-      2. classify — Haiku tier (fixture fallback): summary/category/strength
-      3. curate   — Opus tier (fixture fallback): sections/impacts/lead/strategy
-      4. trend    — recompute stats (+ weekly dashboard) from curated items
+      2. select   — advance per-item state; pick new + re-surfaced items (WS1)
+      3. classify — Haiku tier (fixture fallback): summary/category/strength
+      4. curate   — Opus tier (fixture fallback): sections/impacts/lead/strategy
+      5. trend    — recompute stats (+ weekly dashboard) from curated items
+
+    Selection runs whenever state is persisted, but only feeds curate on the LLM
+    path; offline curate replays the seed manifest from the full pool, so its
+    output stays byte-identical regardless of selection.
     """
 
     if report_type not in ("daily", "weekly"):
@@ -42,8 +53,24 @@ def build(report_type: str, *, persist_items: bool = True) -> Report:
         init_db()
 
     raw_items = ingest.ingest(persist=persist_items)
-    classified = classify.classify(raw_items)
-    report = curate.curate(classified, report_type=report_type)
+
+    reasons: dict[str, str] | None = None
+    selected: list[dict[str, Any]] | None = None
+    if persist_items:
+        result = select.select_for_report(
+            raw_items, report_type=report_type, as_of=as_of or date.today()
+        )
+        selected, reasons = result.items, result.reasons
+
+    settings = get_settings()
+    use_dynamic = settings.llm_enabled and selected is not None
+    pool = selected if use_dynamic else raw_items
+    classified = classify.classify(pool)
+    report = curate.curate(
+        classified,
+        report_type=report_type,
+        reasons=reasons if use_dynamic else None,
+    )
 
     seed_dashboard = report.dashboard if report.type == "weekly" else None
     report = trend.apply_trends(report, seed_dashboard=seed_dashboard)
