@@ -50,21 +50,33 @@ class Connector(Protocol):
         ...
 
 
-def connector_mode_guard(reader_name: str, live_hint: str) -> None:
-    """Raise a clear error if the connector is asked to run in ``live`` mode.
+def connector_mode_guard(reader_name: str, live_hint: str, provenance: str) -> bool:
+    """Decide fixture vs live for one reader (per-source).
 
-    Live upstream credentials (Supabase service key / Notion token / feed URLs)
-    are not provisioned in this environment, so ``live`` is a deliberate, loud
-    ``NotImplementedError`` rather than a silent fallback.
+    Returns ``True`` to use the live path, ``False`` for the fixture path. In
+    ``live`` mode a source must be opted in via ``NINTEL_LIVE_SOURCES``; a source
+    that isn't listed raises a clear ``NotImplementedError`` (a loud "live but
+    unprovisioned" rather than a silent fixture fallback). This lets sources be
+    enabled one at a time.
     """
 
-    mode = get_settings().connector_mode
-    if mode == "live":
-        raise NotImplementedError(
-            f"{reader_name}: NINTEL_CONNECTOR_MODE=live is not available in this "
-            f"environment (no upstream credentials). {live_hint} "
-            f"Set NINTEL_CONNECTOR_MODE=fixture (default) to run against the seed data."
-        )
+    settings = get_settings()
+    if settings.connector_mode != "live":
+        return False
+    if provenance in settings.live_sources:
+        return True
+    raise NotImplementedError(
+        f"{reader_name}: NINTEL_CONNECTOR_MODE=live but source {provenance!r} is not "
+        f"enabled. {live_hint} Add {provenance} to NINTEL_LIVE_SOURCES, or use "
+        f"fixture mode (NINTEL_CONNECTOR_MODE=fixture)."
+    )
+
+
+def domain_of(url: str) -> str:
+    """The host portion of a URL (for ``source_domain``)."""
+    from urllib.parse import urlparse
+
+    return urlparse(url).netloc
 
 
 # ---------------------------------------------------------------------------

@@ -18,3 +18,7 @@ sqlite-vec==0.1.6
 # anthropic==0.42.0
 # Optional — only needed when NINTEL_EMBEDDER=fastembed (local RAG embeddings).
 # fastembed==0.3.6
+# Optional — only needed for NINTEL_CONNECTOR_MODE=live (per-source upstreams).
+# supabase==2.10.0
+# notion-client==2.2.1
+# feedparser==6.0.11

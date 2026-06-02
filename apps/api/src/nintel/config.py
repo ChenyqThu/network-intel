@@ -66,6 +66,10 @@ class Settings:
 
     # Pipeline behaviour
     connector_mode: str = "fixture"  # fixture | live
+    # Subset of source provenances {A,B,C} that run live when connector_mode=live.
+    # Default empty -> live mode raises for every source (preserves the loud
+    # "not provisioned" behaviour); add sources here to enable them one at a time.
+    live_sources: frozenset[str] = frozenset()
     llm_enabled: bool = False
     review_mode: str = "manual"  # manual | auto
 
@@ -131,6 +135,11 @@ def get_settings() -> Settings:
         data_dir=data_dir,
         db_path=db_path,
         connector_mode=os.getenv("NINTEL_CONNECTOR_MODE", "fixture").strip().lower(),
+        live_sources=frozenset(
+            s.strip().upper()
+            for s in os.getenv("NINTEL_LIVE_SOURCES", "").split(",")
+            if s.strip()
+        ),
         llm_enabled=_env_bool("NINTEL_LLM_ENABLED", False),
         review_mode=os.getenv("NINTEL_REVIEW_MODE", "manual").strip().lower(),
         resurface_heat_delta=int(os.getenv("NINTEL_RESURFACE_HEAT_DELTA", "50")),
