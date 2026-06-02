@@ -95,14 +95,27 @@
 
 ## 四、数据源设计（v1.1 重写）
 
-### 来源 A：个人情报流 summary.jsonl（复用，含两类舆情）
+### 来源 A：omada-sentiment-monitor（舆情主源，v1.3 重大变更）
 
-直接读现有 summary.jsonl，过滤条件：
-- **Omada 自身舆情（subject=omada_self，重要）**：src=reddit 且 subreddit 含 `TPLink_Omada`/`Omada_Networks`（日报标 `[用户声音]`）；src=youtube 且标题/正文含 Omada。这是自家产品的 bug/功能请求/好评/痛点/流失信号
-- **竞品舆情（subject=competitor）**：src=reddit 且 subreddit 含 `Ubiquiti`（标 `[竞品]`）；src=youtube 且标题含 UniFi/Ubiquiti
-- **行业（subject=industry）**：category = networking；src = rss/x 的行业条目
+原定“读 summary.jsonl 过滤舆情”被**取代**为直读专用舆情系统 `~/Projects/omada-sentiment-monitor`。它本就是为 Omada 舆情设计的，比 summary.jsonl 专业一个量级。
 
-> ⚠️ 本产品不是纯竞品跟踪。**Omada 自身舆情是与竞品舆情并重的一级维度**，日报里一直有（r/TPLink_Omada `[用户声音]`）。自身舆情是产品改进输入（bug/功能请求），竞品舆情是市场机会识别。
+**采集状态**：GitHub Action `monitor.yml` **每小时跑**，持续写入 Notion（本地 SQLite 是 gitignored 旧副本，**不是真实数据源**）。
+
+**真实数据在 Notion**（凭证在 omada-sentiment-monitor `.env`）：
+- Reddit DB：`21d15375830d803aa102cec9b46957da`（每小时更新）
+- YouTube DB：`32a15375830d806b8818ee29aeda48c6`
+- KOL DB / Report DB（另有独立 DB）
+
+**现成 AI 字段**（比 summary.jsonl 强）：情感倾向 / 情感分数 / 相关性得分 / 切换意图 / 产品型号 / 核心主张 / 用户Karma / 置信度 / 分析器类型
+
+**subreddit 覆盖**：HomeNetworking / Ubiquiti / networking / msp / TPLink_Omada / Omada_Networks / sysadmin
+
+**读法**：走 `ntn` / Notion API 增量拉取，按 subject 分流：
+- **Omada 自身舆情（subject=omada_self）**：TPLink_Omada/Omada_Networks 来源 → bug/功能请求/好评/痛点/流失（“切换意图”字段直接捕捉流失信号）
+- **竞品舆情（subject=competitor）**：Ubiquiti 来源 → UniFi 痛点/对比
+
+> ⚠️ 本产品不是纯竞品跟踪。**Omada 自身舆情是与竞品舆情并重的一级维度**。自身舆情是产品改进输入（bug/功能请求），竞品舆情是市场机会识别。
+> ⚠️ 采集新鲜度判断别看本地文件 mtime：gitignored 数据要查真实后端（GitHub Action + Notion）。
 
 ### 来源 B：UNIFI_CHANNELS Supabase（v1.1 核心新增）
 
@@ -129,6 +142,16 @@ psql 直连，按 created_at/published_at 增量消费：
 - 竞品 + 主要玩家财报/季报要点（Ubiquiti 已有 UNIFI_CHANNELS SEC 源；Cisco/HPE Aruba/锐捷另补）
 
 > 实现上 C-1 走现有 `fetch_rss.py` 扩展 feed 列表（零新架构）；C-2 部分走 RSS，无 RSS 的用周期性 web_search 补。行业源产出同样归一化入 Intel Item schema。
+
+### 来源 D：市场策略洞察（v1.3 新增，战略级）
+
+前三个来源都是**事件级**（今天谁发了新品/谁在抱怨），缺**战略级综合判断**。市场策略洞察不是新加一个爬虫源，而是 **Opus 在周报里对前面三源的一周数据做综合策展**：
+- 读一周的竞品动作（不是单个新品，而是“UniFi 在往哪个方向走”）
+- 读一周的舆情趋势（Omada vs UniFi 口碑消长）
+- 读财报/市场份额信号（UNIFI_CHANNELS SEC 源 + 行业分析师）
+- 输出：SMB/企业网络市场格局判断 + 竞品战略意图 + 对 Omada 产品策略的中长期建议
+
+> 这一层不靠爬虫，靠 **Opus 在周报做综合策展判断**（定位级与事件级的分水岭）。日报不做战略判断（避免稀释）。
 
 ### 数据融合统一 schema
 
@@ -255,13 +278,17 @@ psql 直连，按 created_at/published_at 增量消费：
 
 ### 周报（深度 · 每周一 09:30 PT）
 
-五部分结构化：
+七部分结构化（v1.3：加 Omada 自身舆情区 + 市场策略洞察区）：
 
-1. **本周竞品动作盘点** — UniFi 新品/固件/定价/渠道，逐条 + 对 Omada 影响判断（high/medium/low threat）
-2. **用户舆情趋势** — 本周 Omada vs UniFi 口碑对比，高频痛点 Top5，环比变化
-3. **store 动向** — 本周价格/库存/上架变化，关键品类
-4. **行业风向** — 本周值得关注的趋势 + 一句话点评
-5. **数据看板** — 本周信号量、各源贡献、热度 Top 10
+0. **🎯 市场策略洞察（置顶，v1.3 新增）** — Opus 读本周竞品+舆情+财报，输出 SMB/企业网络市场格局判断 + 竞品战略意图 + 对 Omada 产品策略的中长期建议（战略级，区别于下面的事件级）
+1. **🟢 本周 Omada 自身舆情** — 固件 bug 汇总 / 高频功能请求 Top5 / 好评亮点 / 流失信号（产品团队最该看）
+2. **⚔️ 本周竞品动作盘点** — UniFi 新品/固件/定价/渠道，逐条 + 对 Omada 影响判断
+3. **🗣️ 竞品舆情趋势** — 本周 Omada vs UniFi 口碑对比，UniFi 高频痛点 Top5，环比变化
+4. **🏪 store 动向** — 本周价格/库存/上架变化，关键品类
+5. **🏭 行业风向** — 本周值得关注的趋势 + 一句话点评
+6. **📊 数据看板** — 本周信号量、各源贡献、Omada vs UniFi 舆情量对比、热度 Top 10
+
+> 市场策略洞察置顶：读者先看“本周市场怎么走、Omada 该怎么应”的战略判断，再往下看支撑这个判断的事件细节。
 
 ---
 
