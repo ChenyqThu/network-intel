@@ -7,6 +7,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Vite blocks unknown Host headers by default (>=5.4.12, DNS-rebinding
+    // protection). Allow the Cloudflare tunnel domain. Use '.omada.ink' to
+    // permit all *.omada.ink subdomains instead of listing each one.
+    allowedHosts: ['daily.omada.ink'],
     proxy: {
       // Dev proxy: forward API calls to the FastAPI backend.
       '/api': {
