@@ -184,7 +184,7 @@ p { margin:0; text-wrap:pretty; }
 [data-theme="dark"] .lead { border-color:color-mix(in oklab,var(--fg-primary) 55%,transparent); }
 .lead-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--fg-tertiary); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
 .lead-eyebrow .opus { color:var(--color-primary); }
-.lead-text { font-size:19.5px; line-height:1.66; letter-spacing:-.012em; color:var(--fg-primary); max-width:66ch; font-weight:500; }
+.lead-text { font-size:19.5px; line-height:1.66; letter-spacing:-.012em; color:var(--fg-primary); font-weight:500; }
 [data-density="compact"] .lead-text { font-size:17.5px; }
 .lead-text .sub { color:var(--fg-secondary); font-weight:400; }
 .lead-strong { display:block; margin-top:13px; font-weight:800; font-size:17px; letter-spacing:-.02em; }
