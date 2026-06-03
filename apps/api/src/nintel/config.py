@@ -136,7 +136,7 @@ class Settings:
     # fixed set of weekly prompts with Google Search and structures the result
     # into `subject=industry` items. Cost is isolated from the Anthropic budget.
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-2.5-pro"  # any grounding-capable model; verify latest
+    gemini_model: str = "gemini-3.5-flash"  # latest GA; grounding + structured output
     # Industry RSS (source C): feeds come from inline NINTEL_RSS_FEEDS and/or a
     # newline-delimited file (NINTEL_RSS_FEEDS_FILE) so the curated catalog can
     # live in a committed file instead of one giant env var ('#' lines ignored).
@@ -222,7 +222,7 @@ def get_settings() -> Settings:
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
         opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),
         gemini_api_key=os.getenv("NINTEL_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or None,
-        gemini_model=os.getenv("NINTEL_GEMINI_MODEL", "gemini-2.5-pro"),
+        gemini_model=os.getenv("NINTEL_GEMINI_MODEL", "gemini-3.5-flash"),
         rss_feeds_file=os.getenv("NINTEL_RSS_FEEDS_FILE") or None,
         # Override to A/B a candidate prompt set (e.g. prompts/variants/).
         prompts_dir=Path(os.getenv("NINTEL_PROMPT_DIR", str(PROMPTS_DIR))).resolve(),

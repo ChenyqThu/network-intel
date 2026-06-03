@@ -6,7 +6,11 @@ Three upstreams feed the engine (PRD §2, SOLUTION §8):
   sentiment / relevance / switch_intent annotations  → :class:`SentimentMonitorReader`
 * **Source B — UNIFI_CHANNELS** (Supabase): UniFi product_releases / blog /
   community / store rows  → :class:`SupabaseReader`
-* **Source C — industry RSS**: Wi-Fi Alliance / IEEE etc.  → :class:`RssReader`
+* **Source C — industry RSS**: chip/Wi-Fi media + standards feeds  → :class:`RssReader`
+* **Source G — Gemini deep-research**: weekly grounded prompts (protocol / chip /
+  competitor / conference) → real industry items  → :class:`GeminiResearchReader`
+* **Source H — HTML scrape**: no-feed official sources (UniFi/Netgear/MediaTek/
+  Realtek/Reyee listing pages)  → :class:`HtmlScrapeReader`
 
 Each reader implements the :class:`Connector` protocol and yields raw source
 rows (:class:`RawRow`). The real upstreams and their credentials are **not**
@@ -22,6 +26,8 @@ raises ``NotImplementedError`` with a clear message.
 """
 
 from .base import Connector, RawRow, connector_mode_guard
+from .gemini_research import GeminiResearchReader
+from .html_scrape import HtmlScrapeReader
 from .rss import RssReader
 from .sentiment_monitor import SentimentMonitorReader
 from .supabase import SupabaseReader
@@ -33,11 +39,23 @@ __all__ = [
     "SupabaseReader",
     "SentimentMonitorReader",
     "RssReader",
+    "GeminiResearchReader",
+    "HtmlScrapeReader",
     "all_connectors",
 ]
 
 
 def all_connectors() -> list[Connector]:
-    """The full connector set, in ingest priority order (B, A, C)."""
+    """The full connector set, in ingest priority order (B, A, C, H, G).
 
-    return [SupabaseReader(), SentimentMonitorReader(), RssReader()]
+    Order is the dedupe priority: native/official sources (B/A/C) and direct
+    scrapes (H) win a content_hash tie over the research-synthesized stream (G).
+    """
+
+    return [
+        SupabaseReader(),
+        SentimentMonitorReader(),
+        RssReader(),
+        HtmlScrapeReader(),
+        GeminiResearchReader(),
+    ]

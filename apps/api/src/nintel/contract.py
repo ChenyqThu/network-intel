@@ -34,7 +34,7 @@ Source = Literal[
     "omada_community", "unifi_community", "unifi_product", "unifi_store",
     "unifi_release", "blog", "reddit", "youtube", "rss", "x",
 ]
-Provenance = Literal["A", "B", "C", "D"]
+Provenance = Literal["A", "B", "C", "D", "G", "H"]
 Category = Literal[
     "bug", "feature_request", "praise", "pain_point", "new_product", "pricing",
     "firmware", "competitor", "sentiment", "industry", "industry_trend",

@@ -1,0 +1,52 @@
+# Network Intel — industry RSS feed catalog (source C).
+#
+# Point NINTEL_RSS_FEEDS_FILE at this file and run source C live:
+#   NINTEL_CONNECTOR_MODE=live  NINTEL_LIVE_SOURCES=C  NINTEL_RSS_FEEDS_FILE=config/industry_feeds.txt
+#
+# One feed URL per line. '#' lines and blanks are ignored. All ACTIVE feeds below
+# were verified to return valid XML with a current (2026-06) item.
+# Tier (official/community) is assigned automatically by host (see base.tier_for_domain).
+
+# ── Chip / semiconductor + Wi-Fi industry media (highest signal density) ──────
+https://www.cnx-software.com/feed/                 # chips / SoC / ethernet controllers, daily
+https://www.servethehome.com/feed/                 # switches / NICs / multi-gig reviews, daily
+https://wifinowglobal.com/feed/                     # Wi-Fi industry news (most on-topic)
+https://dongknows.com/feed/                         # reviews Omada/TP-Link-class gear directly
+https://www.networkworld.com/feed/                  # enterprise networking trade press
+https://feeds.packetpushers.net/                    # practitioner analysis / podcasts
+https://api.theregister.com/api/v1/article?query=tag:networks&orderBy=published&site_id=2&remapper=rss&limit=25  # El Reg networking
+
+# ── Silicon vendors ──────────────────────────────────────────────────────────
+https://www.marvell.com/blogs/feed                  # switching / ethernet silicon + Prestera SDK
+# Qualcomm OnQ: real feed but bot-guarded — works with the browser UA the reader sends.
+# https://www.qualcomm.com/rss/onq-blog
+
+# ── Standards / protocol bodies ──────────────────────────────────────────────
+https://csa-iot.org/feed/                           # Matter / Thread (NOT /newsroom/feed/, that's stale)
+
+# ── Competitors (native feeds) ───────────────────────────────────────────────
+https://www.cambiumnetworks.com/feed/               # enterprise Wi-Fi 7 competitor
+https://mikrotik.com/download.rss                   # RouterOS firmware releases
+https://blog.mikrotik.com/rss/?cat=security         # MikroTik security advisories
+# SDxCentral: real feed, bot-guarded (works with browser UA); enable if you want telco/SDN.
+# https://www.sdxcentral.com/feed/
+# Cisco Meraki: valid feed but dormant since 2025-03 — low ROI.
+# https://meraki.cisco.com/blog/feed/
+
+# ── Google News query feeds (OPTIONAL) ───────────────────────────────────────
+# Robust discovery net for vendors WITHOUT a native feed (Broadcom, MediaTek,
+# Netgear, Realtek, Reyee, UniFi). CAVEAT: entry links are news.google.com
+# redirect URLs, not the publisher's canonical URL — this weakens the citation
+# line (PRD §7.8.6 wants real URLs). Prefer the HTML-scrape connector (source H)
+# for direct official-source collection. Enable these only as a coverage net.
+# https://news.google.com/rss/search?q=%22UniFi%22%20OR%20%22Ubiquiti%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en
+# https://news.google.com/rss/search?q=%22Netgear%22%20%28Orbi%20OR%20WiFi%20OR%20switch%29%20when%3A7d&hl=en-US&gl=US&ceid=US:en
+# https://news.google.com/rss/search?q=%22MediaTek%22%20Filogic%20when%3A7d&hl=en-US&gl=US&ceid=US:en
+# https://news.google.com/rss/search?q=%22Broadcom%22%20%28%22Wi-Fi%22%20OR%20WiFi%20OR%20ethernet%29%20when%3A7d&hl=en-US&gl=US&ceid=US:en
+# https://news.google.com/rss/search?q=%22Reyee%22%20OR%20%22Ruijie%22%20when%3A7d&hl=en-US&gl=US&ceid=US:en
+
+# ── No usable feed → handled elsewhere ───────────────────────────────────────
+# Direct official blogs (real URLs) via the HTML-scrape connector (source H):
+#   blog.ui.com, netgear.com/blog, mediatek.com/blog, realtek.com news, reyee news.
+# Frontier / event coverage (WLPC, Wi-Fi NOW events, MWC, Computex, IEEE 802.11
+# spec status) → the Gemini deep-research connector (source G).

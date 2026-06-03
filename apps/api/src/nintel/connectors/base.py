@@ -79,6 +79,33 @@ def domain_of(url: str) -> str:
     return urlparse(url).netloc
 
 
+# First-party "official" domains: vendor / standards-body / competitor official
+# channels. Anything else (secondary press, forums, news aggregators) defaults to
+# "community". Matched as a host suffix so subdomains count (blog.ui.com -> ui.com).
+# Shared by the RSS (C), Gemini-research (G) and HTML-scrape (H) connectors so the
+# citation-credibility tier (PRD §7.8.2) is assigned consistently across sources.
+_OFFICIAL_DOMAINS: frozenset[str] = frozenset({
+    # standards / protocol bodies
+    "wi-fi.org", "ieee.org", "ieee802.org", "csa-iot.org", "threadgroup.org",
+    "ethernetalliance.org", "broadband-forum.org", "mocalliance.org",
+    # silicon vendors
+    "qualcomm.com", "broadcom.com", "mediatek.com", "realtek.com", "marvell.com",
+    # competitors' official channels
+    "ui.com", "netgear.com", "zyxel.com", "mikrotik.com", "ruijie.com",
+    "engeniustech.com", "cambiumnetworks.com", "arubanetworks.com", "hpe.com",
+    "meraki.cisco.com", "juniper.net", "grandstream.com", "tp-link.com",
+})
+
+
+def tier_for_domain(domain: str) -> str:
+    """``official`` for known first-party domains, else ``community``."""
+
+    d = (domain or "").lower().lstrip(".")
+    if d.startswith("www."):
+        d = d[4:]
+    return "official" if any(d == o or d.endswith("." + o) for o in _OFFICIAL_DOMAINS) else "community"
+
+
 # ---------------------------------------------------------------------------
 # Shared fixture source: the canonical seed reports.
 # ---------------------------------------------------------------------------

@@ -15,6 +15,9 @@ __pycache__/
 *.db
 data/*.db
 
+# Gemini deep-research memo archive (source G runtime output)
+data/research/
+
 # Review queues (keep the dirs, ignore contents)
 data/pending/*
 data/published/*
