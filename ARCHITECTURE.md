@@ -1,115 +1,150 @@
-# Network Intel (`nintel`) — Architecture & Implementation Plan
+# Network Intel (`nintel`) — Architecture
 
-> Full-stack implementation of the **Network Intel** internal competitive-intelligence
-> station, derived from the latest authoritative docs in `project/uploads/`:
-> **PRD v1.3** (`PRD-404ea141.md`), **SOLUTION v1.3** (`SOLUTION-8ae5d9e6.md`),
-> **SAMPLE_REPORT** (`SAMPLE_REPORT-00372eff.md`), **DESIGN_HANDOFF v2 + v3**.
-> Visual language: the **"Dossier"** design system shipped in `project/styles.css` +
-> `project/components.jsx` and documented in `project/Network Intel Design System.html`.
+Full-stack implementation of the **Network Intel** internal competitive-intelligence station
+for the TP-Link **Omada** network team. Origin spec: `docs/PRD.md` + `docs/SOLUTION.md` +
+`docs/SAMPLE_REPORT.md` + the **Dossier** design system (`docs/DESIGN_HANDOFF_v2/v3`).
+Operational conventions for AI sessions live in **`CLAUDE.md`**; ADRs in `docs/DECISIONS.md`.
 
 ---
 
 ## 1. What we are building
 
-An internal-only competitive & sentiment intelligence reader for the TP-Link network
-products team. Two report cadences:
+An internal-only competitive & sentiment intelligence reader. Two cadences:
 
-- **Daily** (minimal): `Omada self-sentiment → Competitor moves → Competitor sentiment → Industry`.
-- **Weekly** (deep): `🎯 Market-Strategy Insight (pinned) → Omada self → Competitor moves →
-  Competitor sentiment → Store moves → Industry → Analytics dashboard`.
+- **Daily** (舆情): `Omada self-sentiment → Competitor`.
+- **Weekly** (deep): `🎯 Market-Strategy Insight (pinned) → Omada self → Competitor → Store moves
+  → Industry → Analytics dashboard`.
 
-The product's soul (PRD §7.8) is **one-click traceability**: every card carries a
-prominent citation line, every synthesized conclusion (lead / strategy) carries clickable
-`{{cite:N}}` superscripts, and every report ends with a numbered References list.
+The product's soul is **one-click traceability + no fabrication**: every conclusion is a
+**synthesis of real, link-verified signals**, cited academically and resolvable to a numbered
+References list. Nothing is invented — see the NO-FABRICATION rule in `CLAUDE.md`.
 
-The entire system is wired around **one contract**: `report.json` (PRD §7.9). The engine
-produces it; every frontend (web / email / Feishu) only renders it. See `contract/`.
+The system is wired around **one contract**, `report.json`. The engine produces it; every
+frontend (web / email) only renders it. Canonical schema: `contract/report.schema.json`.
 
-## 2. Tech-stack decision (evaluated)
+## 2. Tech stack
 
-| Layer | Choice | Why |
-|-------|--------|-----|
-| **Contract** | `report.json` + JSON Schema (`contract/report.schema.json`) | PRD §7.9 mandates a single engine↔frontend contract. Schema makes it testable on both sides. |
-| **Backend** | **Python 3.11 + FastAPI + SQLite (SQLAlchemy) + Pydantic v2** | Matches SOLUTION §8 (`connectors/`, `engine/ingest|classify|trend|render`, SQLite `nintel.db`). FastAPI serves the contract over REST and can also dump static JSON for CF Pages parity. Pydantic models *are* the schema, validated at the boundary. |
-| **LLM stage** | **Anthropic SDK** — Haiku (summarize/classify) + Opus (curate/impact/lead/strategy), with prompt caching | PRD FR-2 two-tier pipeline. Gated behind `NINTEL_LLM_ENABLED`; defaults to the seeded curated fixtures so the system runs and tests **offline / without API keys**. |
-| **Connectors** | Interface + **fixture-backed** impl seeded from the verified SAMPLE_REPORT data | The real upstreams (UNIFI_CHANNELS Supabase, omada-sentiment-monitor Notion) and their credentials are **not present in this environment**. Connectors expose the exact shape a real Supabase/Notion reader would, so swapping in live readers is a drop-in. |
-| **Frontend** | **React 18 + Vite + TypeScript** | The design medium is a React/Babel prototype; Vite+TS is the production-faithful port. Pixel-parity by porting `styles.css` verbatim as the design-system stylesheet. |
-| **Email** | Jinja2 server-rendered template in the backend `render` stage | SOLUTION §8 `templates/daily.html.j2`. Ports `project/email-daily.html` to table-based inline-styled HTML driven by the same contract. |
-| **Tests** | `pytest` (backend), `vitest` + Playwright smoke (frontend) | Contract round-trip, schema validation, render snapshots; web build + a headless render check. |
+| Layer | Choice | Notes |
+|-------|--------|-------|
+| **Contract** | `report.json` + JSON Schema | Single engine↔frontend contract; right-extend only. Mirrored by `contract.py` (Pydantic) + `types.ts`. |
+| **Backend** | Python 3.11 · FastAPI · SQLite (SQLAlchemy, WAL) · Pydantic v2 | Engine stages + REST + Jinja2 email. Pydantic models *are* the schema, validated at the boundary. |
+| **LLM (3-tier)** | Anthropic SDK — **Sonnet** (shortlist/精选) + **Haiku** (classify) + **Opus** (curate), prompt caching | Routed through a **claude-relay-service** (`ANTHROPIC_BASE_URL` + `cr_` key). Gated by `NINTEL_LLM_ENABLED`; offline replays the seed manifest deterministically. |
+| **Connectors** | Live readers behind a `Connector` protocol | A=sentiment(Notion) · B=Supabase · C=RSS · G=Gemini. `NINTEL_CONNECTOR_MODE=live` + `NINTEL_LIVE_SOURCES`; fixture fallback for offline/tests. |
+| **RAG / kos** | sqlite-vec (`history`) + kos HTTP (`background`) | Optional Omada domain knowledge fed to the curator as reference-only context. |
+| **Frontend** | React 18 · Vite · TypeScript | Pixel-faithful Dossier port; one stylesheet `src/styles/dossier.css`. |
+| **Deploy** | pm2 + Cloudflare tunnel | `daily.omada.ink` → vite preview :5173 → proxies `/api` → :8000. |
 
 ### Repository layout
-
 ```
-~/Projects/network-intel/
-├── ARCHITECTURE.md            ← this file
-├── contract/                  ← the engine↔frontend contract (source of truth)
-│   ├── report.schema.json     ← JSON Schema (PRD §7.9 + v1.3 strategy/subject)
-│   ├── 2026-06-01-daily.json  ← seed: real, link-verified daily (omada_self + competitor + sentiment + industry)
-│   └── 2026-W22-weekly.json   ← seed: weekly with strategy block + 7 sections + dashboard stats
-├── apps/
-│   ├── api/                   ← Python FastAPI backend (engine + REST + email render)
-│   └── web/                   ← React + Vite + TS frontend (Dossier design system)
-├── docs/                      ← engineering docs (contract guide, dev/run, decisions)
-└── project/                   ← original Claude Design handoff (prototype + uploads) — reference
+contract/   report.schema.json · seed daily/weekly · archive.json   ← source of truth
+apps/api/   src/nintel/{connectors,engine,store,review,api,templates}
+            prompts/ · knowledge/ (RAG corpus) · scripts/ (regen) · tests/
+apps/web/   src/{components,pages,lib,api,styles,fixtures,test}
+docs/       CONTRACT · DECISIONS · PRD · SOLUTION · SAMPLE_REPORT · design handoffs
+project/    original Claude Design handoff (prototype) — reference
+ecosystem.config.cjs   pm2 process defs (api / web / dev)
+CLAUDE.md   operational guide for AI sessions
 ```
 
-## 3. Backend design (`apps/api`)
+## 3. The pipeline (`apps/api/src/nintel/pipeline.py:build()`)
 
 ```
-connectors/        SupabaseReader (B), SentimentMonitorReader (A, Notion), RssReader (C)
-                   → all behind a Connector protocol; fixture impls seeded from SAMPLE_REPORT
-engine/
-  ingest.py        normalize each source → Intel Item schema → SQLite (dedupe by content_hash)
-  classify.py      Haiku: summary + category + signal_strength (LLM-optional; fixture fallback)
-  curate.py        Opus: select/order, omada_impact (subject-aware), impact_note, lead,
-                   strategy (weekly), cite_id assignment  → report.json  (LLM-optional)
-  trend.py         weekly analytics: by_source / by_impact / sentiment trend / pains / top_hot
-  render.py        Jinja2 → daily.html.j2 / weekly.html.j2 email + markdown (Feishu)
-  contract.py      Pydantic models == report.json schema; validate() + dump()
-store/             SQLAlchemy models (intel_items, reports), session, migrations-lite
-api/               FastAPI app: GET /api/reports, /api/reports/{id}, /api/items (filters),
-                   /api/archive, GET /api/reports/{id}/email (rendered HTML)
-review/            human-review gate: pending dir, approve→publish (PRD §3.2b)
+ingest → brand → select(初筛) → shortlist(Sonnet 精选) → classify(Haiku) → curate(Opus 策展) → trend → funnel → gate → publish
 ```
 
-**subject-aware impact semantics** (PRD §2.1, handoff v2):
-- `subject = omada_self` → `needs_fix` / `feature_input` / `strength_confirm`
-- `subject = competitor` → `threat` / `opportunity` / `neutral`
+Three LLM tiers, each doing what it's best at: **Sonnet** judges value (which signals matter),
+**Haiku** does cheap structured extraction, **Opus** synthesizes.
 
-The Intel Item carries the §7.8.5 traceability fields (`url`, `source_domain`,
-`source_tier`, `cite_id`, `date`) and v1.3 sentiment fields (`sentiment`,
-`relevance`, `switch_intent`). URL integrity follows §7.8.6 (full UUIDs, never truncated).
+1. **ingest** (`engine/ingest.py`) — every connector → normalized item dicts → persisted to
+   SQLite `intel_items` (dedup by `content_hash(source,url,title)`). On a daily, connectors
+   declaring `cadence="weekly"` (C, G) are skipped.
+2. **brand** (`engine/brand.py`) — LLM brand-disambiguation: drops items merely *named* "Omada"
+   (e.g. the Omada EV) from the omada_self candidates. No-op offline.
+3. **select / 初筛** (`engine/select.py`) — Python rule-based coarse filter (the gate that fixed "stale content"):
+   - **freshness window** (daily 2d / weekly 7d), **provenance-G exempt** (deep-research syntheses);
+   - **crosspost-collapse** (same story across subreddits → one);
+   - **turning-point re-surfacing** (heat spike / sentiment flip / switch-intent, after cooldown);
+   - **subject + source balance** (round-robin so omada_self isn't crowded out; G gets its own slot);
+   - **wide net** to `NINTEL_SELECT_PREFILTER_MAX` (default 80) — it no longer hard-caps to the
+     final count, so a valuable low-engagement signal isn't pre-judged away. Pure-Python and free.
+4. **shortlist / 精选** (`engine/shortlist.py` → `llm.shortlist_items`, **Sonnet**) — the value
+   judge: given the ~80 candidates + an editorial system prompt (`prompts/shortlist.md`:
+   background / goal / filtering strategy), it keeps the ~`NINTEL_SHORTLIST_MAX` (default 15) most
+   *decision-relevant* items (value over engagement — a low-engagement firmware-bug thread beats a
+   high-like water post). **Selects real items by index only** — never generates (NO-FABRICATION
+   holds). Best-effort: a hiccup → prefilter order; offline → prefilter top-N; a Python net
+   guarantees omada_self is represented.
+5. **classify** (Haiku, `engine/classify.py`) — summary / category / signal_strength on the ~15 精选 items.
+6. **curate / 策展** (Opus, `engine/curate.py`) — **synthesis** (see §5). The engine, not the LLM,
+   owns: section assembly, `cite_id` assignment (1..N in display order) + References rebuild,
+   citation-integrity asserts, reference pruning to the cited set, enum-guarding of LLM drift,
+   and a non-empty-lead safety net.
+7. **trend** (`engine/trend.py`) — recompute `stats` + the weekly `dashboard` from the curated items.
+8. **funnel** — `采集`(raw per source) → `初筛`(select) → `精选`(Sonnet) → `策展`(cited) + byline → `report.funnel`.
+9. **review gate** (`review/gate.py`) — daily auto-publishes; weekly lands in `pending/` for `/admin`.
+10. **publish** — write `data/published/<id>.json` + upsert the `reports` table (the API serves
+   `row.payload` fresh per request); optionally index history into RAG / push a page to kos.
 
-## 4. Frontend design (`apps/web`)
+**LLM-optional invariant:** offline (no `NINTEL_LLM_ENABLED`) the curate stage replays the
+seed manifest → byte-stable output → the test suite runs with no keys/network. Synthesis,
+insights, and the funnel only materialize on the **live + LLM** path.
 
-Pixel-faithful port of the Dossier system. Pages (PRD §7.3): **Home** (latest, daily/weekly
-tab) · **Daily** · **Weekly** (sections + dashboard) · **Archive** (filters) · **All Items**
-(stream). Plus theme (system/light/dark), density, and the Tweaks panel.
+## 4. The contract (`report.json`)
 
-Components ported 1:1 from `project/components.jsx` + the DS page, **including the v2/v3
-additions** which the old `index.html` lacked:
-- `IntelEntry` with subject-aware `ImpactPill` (threat/opp/neutral **+ fix/feat/strength**)
-- `SourceBadge` (glyph + credibility tier), `Research` note, **`SentimentMeta`** tags
-- mandatory `CitationLine`, `Lead` + tally with clickable `{{cite:N}}`, `References`
-- **`StrategyBlock`** (weekly, pinned) — tokens from `project/ds/ds.css` `.strategy`
-- section **tones** (`omada_self`/`competitor`/`sentiment`/`industry`), dashboard charts
+`additionalProperties:false` at the top; evolution is **right-extend only** (add optional
+fields; never break cite numbering or add a `SectionKey` the frontend can't render). Mirrored
+in `contract.py` (Pydantic `extra="forbid"`) and `types.ts`.
 
-Data: consumes the backend REST API; in dev/offline it falls back to the `contract/*.json`
-seeds (same shape), so the UI is fully demonstrable without the API running.
+**v1.4 additions (all optional, backward-compatible):**
+- `insights[]` — synthesized thematic entries `{id, subject, title, body, takeaway, cite_refs}`.
+- `sections[].insights` — insight-id refs (when present, the frontend renders these, not per-item cards).
+- `funnel` — `{collected[], refined, curated, byline, tz}` for the subtitle.
 
-## 5. Build plan (parallelized via subagents)
+## 5. Curation = synthesis (not per-item)
 
-1. **Orchestrator (me)**: scaffold + contract (schema + seeds) + docs. ✅ this commit
-2. **Backend agent** (Opus, max effort): implement `apps/api` against the contract + tests.
-3. **Frontend agent** (Opus, max effort): implement `apps/web` against the contract + tests.
-   *(run concurrently — disjoint directories)*
-4. **Reviews (mandatory)**: Opus review of `apps/web`; rigorous Opus review of `apps/api`
-   (the requested Codex/GPT-5.5 reviewer is not available in this environment — substituting
-   a high-effort Opus backend review and noting it).
-5. **Integration & local launch**: run API + web, smoke-test the full flow, fix, commit, PR.
+The report body is **section-grouped synthesized insights**: each combines several related
+signals into one theme (`①②③`), adds a `💡` takeaway, and cites the underlying real items
+academically (a `来源` line of source-glyph chips → the bottom References). The raw per-source
+items remain as the **References** and the `全部条目` stream.
 
-## 6. Non-goals / environment notes
-- No live Supabase/Notion/Feishu calls (credentials absent) — connectors are fixture-backed
-  but interface-complete for drop-in live readers.
-- LLM curation is implemented but optional; the shipped reports use the human-verified
-  curated seed data so output is deterministic and offline-runnable.
+Three persisted stores, two of them "raw":
+- **Firehose** `intel_items` (~thousands): every ingested signal + dedup/heat state. Not in the UI.
+- **Extraction** `report.items[]` (the cited subset): per-source summary/category/impact + URL. In `全部条目`.
+- **Synthesis** `report.insights[]`: cites items by `cite_id` (no duplication).
+
+Subject-aware impact (PRD §2.1): `omada_self → needs_fix|feature_input|strength_confirm`,
+`competitor → threat|opportunity|neutral`, `industry → opportunity|neutral`.
+
+## 6. State & persistence (`store/`)
+
+SQLite (`data/nintel.db`, WAL): `intel_items` (firehose + per-item lifecycle: first/last_seen,
+last_reported_at, report_count, peak/last_heat, last_sentiment, switch_intent, state),
+`heat_snapshots` (time series for spike detection), `item_reports` (item↔report junction),
+`reports` (published payloads served by the API). Join key everywhere is `content_hash`.
+
+## 7. RAG / kos (`engine/rag.py`, `engine/gbrain.py`)
+
+Optional (`NINTEL_RAG_ENABLED` + `llm_enabled`). Two collections: `background` (Omada/competitor
+domain knowledge — local `knowledge/*.md` corpus **or** the **kos** knowledge base via
+`NINTEL_KB_BACKEND=gbrain`) and `history` (past reported items, local sqlite-vec). The curator
+receives `context.background` + `context.prior_coverage` as **reference-only** input — it
+sharpens analysis and flags "already covered / turning point", but is never citeable. kos is
+reached over OAuth 2.1 + MCP `search`; READ works, WRITE (`put_page`) currently fails server-side.
+
+## 8. Frontend (`apps/web`)
+
+Dossier-system reader. Pages: Home · Daily · Weekly (+ Store table & dashboard) · Archive ·
+All Items. `ReportView` renders the funnel subtitle, the lead, section-grouped `InsightEntry`
+cards (with source-glyph `来源` chips), the weekly `StrategyBlock`, and the References. The
+**admin console** (`/admin`, password-gated, `AdminPage.tsx`) reuses `ReportView` for a live
+preview while an operator edits directly or via LLM chat, then publishes. Consumes the REST
+API; falls back to `contract/*.json` seeds offline.
+
+## 9. Deploy & environments
+
+- **Production:** pm2 (`nintel-api`, `nintel-web`, `nintel-dev`) + Cloudflare tunnel
+  (`daily.omada.ink` → :5173). Data fixes need no redeploy (API reads the DB per request);
+  frontend changes need `npm run build` + `pm2 restart nintel-web`.
+- **Offline / CI:** no keys, no network — fixture connectors + seed-manifest curate; `make test`.
+- **Real regen:** `scripts/regen_synth.py` builds against a throwaway state DB then publishes
+  to main (so the production state machine is never mutated by a re-run).

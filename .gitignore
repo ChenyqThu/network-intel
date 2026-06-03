@@ -15,6 +15,8 @@ dist/
 # Data / runtime
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 apps/api/data/pending/
 apps/api/data/published/
 apps/api/data/reports/
@@ -27,3 +29,7 @@ apps/api/data/reports/
 # OS / editor
 .DS_Store
 *.log
+.gstack/
+
+# Agent / orchestration state
+.omc/
