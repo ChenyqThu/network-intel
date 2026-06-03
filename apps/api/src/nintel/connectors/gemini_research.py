@@ -112,6 +112,7 @@ class GeminiResearchReader:
 
     name = "gemini:deep_research"
     provenance = "G"
+    cadence = "weekly"  # deep-research is a weekly pass — skipped on dailies (cost + semantics)
 
     def fetch(self, since: date) -> list[RawRow]:
         if connector_mode_guard(self.name, _LIVE_HINT, self.provenance):

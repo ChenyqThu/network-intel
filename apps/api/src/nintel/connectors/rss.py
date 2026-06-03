@@ -77,7 +77,12 @@ def feed_urls(settings) -> list[str]:
 
     def _add(raw: str) -> None:
         u = raw.strip()
-        if not u or u.startswith("#") or u in seen:
+        if not u or u.startswith("#"):
+            return
+        # Catalog lines carry an inline "# annotation" after the URL; keep only
+        # the first whitespace-delimited token (a URL never contains spaces).
+        u = u.split()[0]
+        if u in seen:
             return
         seen.add(u)
         urls.append(u)

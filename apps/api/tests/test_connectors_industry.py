@@ -37,10 +37,25 @@ def test_tier_for_domain():
 def test_feed_urls_unions_dedupes_and_skips_comments(tmp_path, monkeypatch):
     monkeypatch.setenv("NINTEL_RSS_FEEDS", "https://a.com/feed, https://b.com/feed")
     f = tmp_path / "feeds.txt"
-    f.write_text("# a comment\nhttps://b.com/feed\nhttps://c.com/feed\n\n", encoding="utf-8")
+    # catalog lines carry an inline "# annotation" after the URL (real format)
+    f.write_text(
+        "# a comment\nhttps://b.com/feed\nhttps://c.com/feed   # inline note, daily\n\n",
+        encoding="utf-8",
+    )
     urls = feed_urls(SimpleNamespace(rss_feeds_file=str(f)))
-    # order preserved, b.com deduped across inline+file, '#'/blank lines dropped
+    # order preserved, b.com deduped, '#'/blank lines dropped, inline comment stripped
     assert urls == ["https://a.com/feed", "https://b.com/feed", "https://c.com/feed"]
+
+
+def test_gemini_research_is_weekly_cadence_only():
+    # Source G is a weekly deep-research pass; the daily ingest must skip it.
+    from nintel.connectors import GeminiResearchReader, all_connectors
+
+    assert GeminiResearchReader.cadence == "weekly"
+    conns = all_connectors()
+    assert any(isinstance(c, GeminiResearchReader) for c in conns)  # available for weekly
+    daily = [c for c in conns if getattr(c, "cadence", "both") != "weekly"]
+    assert not any(isinstance(c, GeminiResearchReader) for c in daily)  # excluded on daily
 
 
 def test_feed_urls_missing_file_is_ignored(monkeypatch):

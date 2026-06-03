@@ -74,13 +74,19 @@ def ingest(
     *,
     since: date = DEFAULT_SINCE,
     persist: bool = True,
+    report_type: str | None = None,
 ) -> list[dict[str, Any]]:
     """Run every connector, normalize + dedupe, optionally persist.
 
     Returns the normalized, deduped item dicts (the raw material for classify).
+    When ``report_type`` is a non-weekly cadence, connectors declaring
+    ``cadence == "weekly"`` (e.g. the Gemini deep-research source) are skipped.
     """
 
-    connectors = connectors if connectors is not None else all_connectors()
+    if connectors is None:
+        connectors = all_connectors()
+        if report_type is not None and report_type != "weekly":
+            connectors = [c for c in connectors if getattr(c, "cadence", "both") != "weekly"]
 
     raw: list[dict[str, Any]] = []
     for conn in connectors:

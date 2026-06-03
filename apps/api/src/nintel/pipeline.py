@@ -60,7 +60,7 @@ def build(
     if persist_items:
         init_db()
 
-    raw_items = ingest.ingest(persist=persist_items)
+    raw_items = ingest.ingest(persist=persist_items, report_type=report_type)
 
     # LLM brand disambiguation for source-A omada_self candidates (drops items
     # merely named "Omada", e.g. the Omada E5 EV). Runs before select so noise

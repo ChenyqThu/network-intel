@@ -21,7 +21,10 @@ for _line in Path(".env").read_text().splitlines():
         os.environ[_k] = _v
 
 os.environ["NINTEL_CONNECTOR_MODE"] = "live"
-os.environ["NINTEL_LIVE_SOURCES"] = "A,B,C"
+# A=Notion sentiment, B=Supabase channels+store, C=industry RSS, G=Gemini deep-
+# research (weekly-only via cadence gate). H (HTML scrape) excluded: templates
+# need per-site validation + title/date cleanup before production.
+os.environ["NINTEL_LIVE_SOURCES"] = "A,B,C,G"
 os.environ["NINTEL_LLM_ENABLED"] = "true"
 os.environ["NINTEL_SELECT_MAX_ITEMS_DAILY"] = "12"
 
@@ -45,8 +48,8 @@ init_db()  # fresh empty schema (db file was removed for a clean slate)
 cfg = SelectConfig.from_settings(s)
 
 JOBS = [
-    ("weekly", date(2026, 5, 31)),   # W22 = 05-25..05-31
-    ("daily", date(2026, 6, 1)),     # 06-01 = 05-31..06-01
+    ("weekly", date(2026, 5, 31)),   # W22 = 05-25..05-31 (latest complete week)
+    ("daily", date(2026, 6, 2)),     # 06-02 = 06-01..06-02 (latest day)
 ]
 
 built = []
