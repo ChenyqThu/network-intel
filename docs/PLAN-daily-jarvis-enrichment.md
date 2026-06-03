@@ -1,7 +1,8 @@
 # 方案：日报管线借鉴 jarvis 的 Layer-1 富化
 
-> 状态：**已批准，推进中**（2026-06-03 用户批准整体方案）。本轮实现目标：富化抽取 + YouTube 转录富化；
-> **过滤阈值半段**仍留到专门的"规则/策略"会谈。本文档 2026-06-03 拟定。
+> 状态：**phase-1（`key_claim` + 信号利用）已实现并提交 `a9e0bdd`**（2026-06-03）。
+> **源数据阶段**（Reddit 评论 + YT transcript，经增强上游 omada-sentiment-monitor）= 下次专项；
+> **过滤阈值半段**留到专门的"规则/策略"会谈。本文档 2026-06-03 拟定。
 
 ## 目标
 
@@ -64,8 +65,10 @@
 **问题**：Source A 的 YouTube 条目（来自 Notion sentiment-monitor）目前**只有标题**（可能有简介），
 **没有 transcript**，仅凭标题难判断相关性与影响。
 
-**方案**：用 **YouTube Data API 取视频字幕 / transcript**，transcript → haiku 初筛 summary（jarvis 式），
-让 classify/curate 基于真实内容判断，而非标题。
+**方案（方向已定 2026-06-03 · 下次专项开干）**：**在上游 omada-sentiment-monitor 补抓** Reddit 评论原文
++ YouTube transcript（它已经在抓 Reddit/YouTube），同步进 Notion → Source A 自动变富，network-intel 连接器不动；
+然后 classify 据此抽 `community_view`/`top_insight` + 基于 transcript 的实质摘要。
+需：API 凭证 + 改 omada-sentiment-monitor + Notion schema 加字段。
 
 **关键：取 transcript 前必须先初筛，控制数量与成本**：
 - **互动门槛**：按观看量 / 点赞数过滤，低关注视频不取。
