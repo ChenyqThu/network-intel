@@ -18,8 +18,10 @@ from typing import Any
 from ..config import get_settings
 
 
-# The classifier owns exactly these three contract fields.
-CLASSIFIED_FIELDS = ("summary", "category", "signal_strength")
+# The classifier owns these fields. summary/category/signal_strength are contract
+# fields; key_claim is an internal signal carried to curate (and persisted on the
+# stored item) — pruned from the closed report contract.
+CLASSIFIED_FIELDS = ("summary", "category", "signal_strength", "key_claim")
 
 
 def classify(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -46,6 +48,7 @@ def _classify_fixture(item: dict[str, Any]) -> dict[str, Any]:
     out.setdefault("summary", out.get("title", ""))
     out.setdefault("category", _guess_category(out))
     out.setdefault("signal_strength", "medium")
+    out.setdefault("key_claim", "")
     return out
 
 

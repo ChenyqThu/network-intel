@@ -43,8 +43,12 @@ _CLASSIFY_SCHEMA: dict[str, Any] = {
             ],
         },
         "signal_strength": {"type": "string", "enum": ["high", "medium", "low"]},
+        # key_claim: one-line atomic verifiable fact/data point (or "" if none).
+        # An internal signal for curate (sharper leads + a stable cross-day dedup
+        # key); pruned from the closed report contract, kept on the stored item.
+        "key_claim": {"type": "string"},
     },
-    "required": ["summary", "category", "signal_strength"],
+    "required": ["summary", "category", "signal_strength", "key_claim"],
 }
 
 _BRAND_SCHEMA: dict[str, Any] = {
