@@ -73,13 +73,18 @@ def compute_tally(items: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
-def apply_trends(report: Report, *, seed_dashboard: dict[str, Any] | None) -> Report:
+def apply_trends(
+    report: Report, *, seed_dashboard: dict[str, Any] | None, live: bool = False
+) -> Report:
     """Attach recomputed ``stats`` (and weekly ``dashboard``) to ``report``.
 
     The per-report aggregates are recomputed from items; the weekly dashboard's
     editorial multi-week series are carried from the seed manifest, with the
     item-derived aggregates (``topHeat``) refreshed so they match the curated
-    set. Returns a new validated report.
+    set. On the ``live`` path the seed's multi-week placeholders are dropped (a
+    single real report cannot derive them — NO-FABRICATION); offline replays the
+    seed verbatim so the deterministic round-trip holds. Returns a new validated
+    report.
     """
 
     items = [it.model_dump(by_alias=True, exclude_unset=True) for it in report.items]
@@ -91,7 +96,9 @@ def apply_trends(report: Report, *, seed_dashboard: dict[str, Any] | None) -> Re
     doc["tally"] = compute_tally(items)
 
     if report.type == "weekly" and seed_dashboard is not None:
-        doc["dashboard"] = normalize_dashboard(dict(seed_dashboard), items, doc.get("tally") or {})
+        doc["dashboard"] = normalize_dashboard(
+            dict(seed_dashboard), items, doc.get("tally") or {}, live=live
+        )
 
     from ..contract import load_report
 
@@ -107,15 +114,25 @@ _SOURCE_LABEL = {
 
 
 def normalize_dashboard(
-    dash: dict[str, Any], items: list[dict[str, Any]], tally: dict[str, int]
+    dash: dict[str, Any],
+    items: list[dict[str, Any]],
+    tally: dict[str, int],
+    *,
+    live: bool = False,
 ) -> dict[str, Any]:
     """Coerce a weekly dashboard to contract-valid shapes from real item data.
 
     The LLM sometimes emits ``sources`` as a ``{source: count}`` dict (the
     frontend needs an array) or ``vs`` as a list (needs an object), which would
     crash ``ReportView``. Item-derived aggregates (sources / topHeat / signal
-    counts) are recomputed from the curated items; the multi-week editorial
-    series (sentimentTrend / vs / pains) are only type-guarded, never invented.
+    counts / avgHeat / newCompetitor) are recomputed from the curated items.
+
+    The multi-week editorial series (``sentimentTrend`` / ``vs`` / ``pains``) and
+    week-over-week deltas need accumulated history and cannot be derived from a
+    single report. On the ``live`` path they are emitted empty (never carry the
+    seed's placeholder numbers into a real report — NO-FABRICATION); the frontend
+    shows an honest empty-state until history accrues. Offline keeps the seed's
+    series (type-guarded only) so the deterministic round-trip holds.
     """
     by_source = compute_stats(items)["by_source"]
     dash["sources"] = [
@@ -127,13 +144,37 @@ def normalize_dashboard(
     dash["signals"] = tally.get("signals", len(items))
     dash["threats"] = tally.get("threat", 0)
     dash["opps"] = tally.get("opp", 0)
-    # Type-guard the editorial series so a mistyped LLM block can't crash the UI.
+
+    if live:
+        # Single real report: emit only truthfully-derivable aggregates; the
+        # multi-week series stay empty and the 环比 deltas stay null (no prior
+        # week to compare). The frontend hides the delta and shows empty-states.
+        dash["neutral"] = tally.get("neutral", 0)
+        dash["avgHeat"] = _avg_heat(items)
+        dash["newCompetitor"] = sum(1 for it in items if it.get("subject") == "competitor")
+        dash["sentimentTrend"] = []
+        dash["pains"] = []
+        dash["vs"] = {"omada": 0, "unifi": 0}
+        for key in ("signalsDelta", "newCompetitorDelta", "avgHeatDelta"):
+            dash[key] = None
+        return dash
+
+    # Offline / fixture replay: keep the seed's editorial series verbatim
+    # (type-guard only) so the deterministic round-trip holds.
     if not isinstance(dash.get("vs"), dict):
         dash["vs"] = {"omada": 0, "unifi": 0}
     for key in ("sentimentTrend", "pains"):
         if not isinstance(dash.get(key), list):
             dash[key] = []
     return dash
+
+
+def _avg_heat(items: list[dict[str, Any]]) -> int:
+    """Mean heat across the curated items (0 when empty)."""
+
+    if not items:
+        return 0
+    return round(sum(heat_score(it) for it in items) / len(items))
 
 
 def _heat_entry(item: dict[str, Any]) -> dict[str, Any]:

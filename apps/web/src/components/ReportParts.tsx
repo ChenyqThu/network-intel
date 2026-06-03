@@ -3,11 +3,18 @@
    StrategyBlock (weekly), EmptyState.
    Ported 1:1 from project/components.jsx + ds-components.jsx.
    ============================================================ */
-import { Icon } from './Icon';
+import { Icon, SourceGlyph } from './Icon';
 import { CiteText } from './CiteText';
 import { jumpTo } from './../lib/jump';
-import { defaultTierLabel } from '../lib/intel';
-import type { Report, Reference, Strategy, SectionKey } from '../types';
+import { defaultTierLabel, sourceGlyph } from '../lib/intel';
+import type {
+  Report,
+  Reference,
+  Strategy,
+  SectionKey,
+  Insight,
+  IntelItem,
+} from '../types';
 
 /* ---- Lead (导语 with {{cite:N}} superscripts + tally chips) ---- */
 export function Lead({ report }: { report: Report }) {
@@ -43,6 +50,63 @@ export function Lead({ report }: { report: Report }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---- InsightEntry (synthesized multi-source insight, academic citations) ---- */
+export function InsightEntry({
+  insight,
+  byCiteId,
+  num,
+}: {
+  insight: Insight;
+  byCiteId: Record<number, IntelItem>;
+  num: string;
+}) {
+  const takeaway = (insight.takeaway || '').replace(/^\s*💡\s*/, '');
+  const sources = (insight.cite_refs || [])
+    .map((n) => byCiteId[n])
+    .filter(Boolean) as IntelItem[];
+  return (
+    <article className="insight" id={'insight-' + insight.id}>
+      <div className="insight-head">
+        <span className="insight-num tnum">{num}</span>
+        <h3 className="insight-title">{insight.title}</h3>
+      </div>
+      <div className="insight-body">
+        <CiteText text={insight.body} />
+      </div>
+      {takeaway && (
+        <div className="insight-take">
+          <span className="take-bulb">💡</span>
+          <span className="take-text">
+            <CiteText text={takeaway} />
+          </span>
+        </div>
+      )}
+      {sources.length > 0 && (
+        <div className="insight-src">
+          <span className="src-label">来源</span>
+          {sources.map((it, i) => (
+            <span key={it.cite_id} style={{ display: 'contents' }}>
+              {i > 0 && <span className="src-sep">·</span>}
+              <a
+                className="src-chip"
+                href={it.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={it.title}
+              >
+                <SourceGlyph kind={sourceGlyph(it.source, it.glyph)} />
+                <span className="src-name">
+                  {it.title.length > 30 ? it.title.slice(0, 30) + '…' : it.title}
+                </span>
+              </a>
+            </span>
+          ))}
+        </div>
+      )}
+    </article>
   );
 }
 

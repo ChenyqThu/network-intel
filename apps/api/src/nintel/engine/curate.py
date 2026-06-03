@@ -43,6 +43,12 @@ REPORT_IDS = {"daily": "2026-06-01-daily", "weekly": "2026-W22-weekly"}
 
 _CITE_RE = re.compile(r"\{\{cite:(\d+)\}\}")
 
+
+def _cites_in(text: str) -> set[int]:
+    """All ``{{cite:N}}`` numbers in ``text``."""
+    return {int(m) for m in _CITE_RE.findall(text or "")}
+
+
 # Selection reason -> re-surface badge (reuses the optional, already-rendered
 # IntelItem.badges field; no contract/schema change).
 _REASON_BADGE = {
@@ -116,12 +122,17 @@ def curate(
             generated_at=generated_at, report_date=report_date,
         )
         # The section taxonomy is fixed per cadence — the engine assembles it
-        # from each item's subject/source, not the LLM (which drifts).
-        doc["sections"] = _assemble_sections(doc.get("items", []), report_type)
+        # from each item's subject (and groups synthesized insights), not the LLM
+        # (which drifts).
+        insights = doc.get("insights") or []
+        doc["sections"] = _assemble_sections(doc.get("items", []), report_type, insights)
         doc = assign_cite_ids(doc)
-        # The LLM lead/strategy may cite numbers that don't map to any item;
-        # drop those dangling placeholders rather than fail the whole report.
+        # The LLM lead/strategy/insights may cite numbers that don't map to any
+        # item; drop those dangling placeholders rather than fail the report.
         _strip_unresolved_cites(doc)
+        # Synthesized mode: references == cited sources only.
+        if insights:
+            _prune_to_cited(doc, report_type)
         if reasons:
             _apply_resurface_badges(doc, reasons)
         _assert_citation_integrity(doc)
@@ -186,7 +197,8 @@ def _curate_fixture(
 # Allowed keys per contract level (report.schema.json, additionalProperties:false).
 _ALLOWED_TOP = {
     "report_id", "type", "date", "date_range", "generated_at", "title", "lead",
-    "strategy", "tally", "sections", "items", "references", "store", "stats", "dashboard",
+    "strategy", "tally", "sections", "items", "insights", "references", "store",
+    "stats", "funnel", "dashboard",
 }
 _ALLOWED_ITEM = {
     "id", "cite_id", "subject", "source", "source_domain", "source_tier", "source_label",
@@ -195,7 +207,8 @@ _ALLOWED_ITEM = {
     "switch_intent", "date", "url",
 }
 _ALLOWED_REF = {"cite_id", "title", "source_domain", "source_tier", "tier_label", "date", "url"}
-_ALLOWED_SECTION = {"key", "title", "icon", "desc", "items"}
+_ALLOWED_SECTION = {"key", "title", "icon", "desc", "items", "insights"}
+_ALLOWED_INSIGHT = {"id", "subject", "title", "body", "takeaway", "omada_impact", "cite_refs"}
 _ALLOWED_LEAD = {"text", "strong", "cite_refs"}
 _ALLOWED_STRATEGY = {"title", "period", "paras", "body", "cite_refs"}
 _ALLOWED_STORE = {"product", "cat", "from", "to", "change", "dir", "stock"}
@@ -214,7 +227,24 @@ _SECTIONS_BY_TYPE = {
     "daily": ["omada_self", "competitor", "sentiment", "industry"],
     "weekly": ["omada_self", "competitor", "sentiment", "store", "industry", "dashboard"],
 }
+# Synthesized mode collapses the competitor/sentiment split into one competitor
+# section (insights synthesize across official + community sources), keyed purely
+# by subject.
+# Daily focuses on 舆情 (Omada self + competitor); industry/RSS is weekly-only.
+_SECTIONS_BY_TYPE_SYNTH = {
+    "daily": ["omada_self", "competitor"],
+    "weekly": ["omada_self", "competitor", "store", "industry", "dashboard"],
+}
 _OFFICIAL_SOURCES = {"unifi_release", "blog", "unifi_product", "unifi_store"}
+
+
+def _subject_section(subject: str | None) -> str:
+    """Map a subject to its synthesized-mode section key."""
+    if subject == "omada_self":
+        return "omada_self"
+    if subject == "industry":
+        return "industry"
+    return "competitor"
 
 
 def _section_for_item(it: dict[str, Any]) -> str:
@@ -227,12 +257,41 @@ def _section_for_item(it: dict[str, Any]) -> str:
     return "competitor" if it.get("source") in _OFFICIAL_SOURCES else "sentiment"
 
 
-def _assemble_sections(items: list[dict[str, Any]], report_type: str) -> list[dict[str, Any]]:
-    """Deterministically build the cadence's fixed sections from item subjects.
+def _assemble_sections(
+    items: list[dict[str, Any]],
+    report_type: str,
+    insights: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Deterministically build the cadence's fixed sections.
 
-    store / dashboard are item-less sections (the frontend renders report.store /
-    report.dashboard); they appear with items=[] so the contract order holds.
+    Synthesized mode (``insights`` present): subject-keyed sections, each carrying
+    its insight ids (what the frontend renders) plus its item ids (for reference
+    grouping / cite ordering). Legacy mode: per-item sections (competitor/sentiment
+    split). store / dashboard stay item-less (frontend renders report.store /
+    report.dashboard); they appear so the contract order holds.
     """
+    if insights:
+        keys = _SECTIONS_BY_TYPE_SYNTH.get(report_type, _SECTIONS_BY_TYPE_SYNTH["daily"])
+        item_buckets: dict[str, list[str]] = {k: [] for k in keys}
+        for it in items:
+            sec = _subject_section(it.get("subject"))
+            if sec in item_buckets:
+                item_buckets[sec].append(it["id"])
+        ins_buckets: dict[str, list[str]] = {k: [] for k in keys}
+        for ins in insights:
+            sec = _subject_section(ins.get("subject"))
+            if sec in ins_buckets:
+                ins_buckets[sec].append(ins["id"])
+        out: list[dict[str, Any]] = []
+        for k in keys:
+            sec_obj: dict[str, Any] = {
+                "key": k, "title": _SECTION_TITLES[k], "items": item_buckets.get(k, []),
+            }
+            if ins_buckets.get(k):
+                sec_obj["insights"] = ins_buckets[k]
+            out.append(sec_obj)
+        return out
+
     keys = _SECTIONS_BY_TYPE.get(report_type, _SECTIONS_BY_TYPE["daily"])
     buckets: dict[str, list[str]] = {k: [] for k in keys}
     for it in items:
@@ -261,6 +320,8 @@ def _clean_to_schema(doc: dict[str, Any]) -> dict[str, Any]:
         doc["tally"] = _prune(doc["tally"], _ALLOWED_TALLY)
     if isinstance(doc.get("items"), list):
         doc["items"] = [_prune(it, _ALLOWED_ITEM) for it in doc["items"] if isinstance(it, dict)]
+    if isinstance(doc.get("insights"), list):
+        doc["insights"] = [_prune(ins, _ALLOWED_INSIGHT) for ins in doc["insights"] if isinstance(ins, dict)]
     if isinstance(doc.get("references"), list):
         doc["references"] = [_prune(r, _ALLOWED_REF) for r in doc["references"] if isinstance(r, dict)]
     if isinstance(doc.get("sections"), list):
@@ -287,6 +348,23 @@ _JUDGMENT_KEYS = (
     "subject", "omada_impact", "impact_note", "signal_strength", "badges",
     "stage", "summary", "category",
 )
+# Enum whitelists — the LLM sometimes drifts (e.g. puts an impact value like
+# "feature_input" into `category`). Reject drifted enum values and keep the real
+# classified value instead, so a closed-enum schema field never fails validation.
+_VALID_SUBJECT = {"omada_self", "competitor", "industry"}
+_VALID_CATEGORY = {
+    "bug", "feature_request", "praise", "pain_point", "new_product", "pricing",
+    "firmware", "competitor", "sentiment", "industry", "industry_trend",
+}
+_VALID_IMPACT = {
+    "threat", "opportunity", "neutral", "needs_fix", "feature_input",
+    "strength_confirm", "unknown",
+}
+_VALID_STRENGTH = {"high", "medium", "low"}
+_ENUM_GUARDS = {
+    "subject": _VALID_SUBJECT, "category": _VALID_CATEGORY,
+    "omada_impact": _VALID_IMPACT, "signal_strength": _VALID_STRENGTH,
+}
 
 
 def _reconcile_items(doc: dict[str, Any], input_items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -308,13 +386,26 @@ def _reconcile_items(doc: dict[str, Any], input_items: list[dict[str, Any]]) -> 
         li = llm_by_url.get(base.get("url"), {})
         for k in _JUDGMENT_KEYS:
             v = li.get(k)
-            if v not in (None, ""):
-                merged[k] = v
+            if v in (None, ""):
+                continue
+            guard = _ENUM_GUARDS.get(k)
+            if guard and v not in guard:
+                continue  # LLM drifted on this enum -> keep the real classified value
+            merged[k] = v
         merged["id"] = li.get("id") or merged.get("id") or f"i{idx + 1}"
-        merged.setdefault("subject", _SUBJECT_BY_SOURCE.get(merged.get("source"), "competitor"))
-        merged.setdefault(
-            "omada_impact", _DEFAULT_IMPACT_BY_SUBJECT.get(merged["subject"], "unknown")
-        )
+        # Preserve the LLM's *provisional* cite_id so assign_cite_ids can remap
+        # insight/lead/strategy citations (provisional -> final). Items the LLM
+        # didn't number get a final cite_id but no provisional mapping.
+        if isinstance(li.get("cite_id"), int):
+            merged["cite_id"] = li["cite_id"]
+        if merged.get("subject") not in _VALID_SUBJECT:
+            merged["subject"] = _SUBJECT_BY_SOURCE.get(merged.get("source"), "competitor")
+        # impact must be valid for the subject (PRD §2.1); else a sensible default.
+        allowed = IMPACT_VOCAB.get(merged["subject"], set()) | {"unknown"}
+        if merged.get("omada_impact") not in allowed:
+            merged["omada_impact"] = _DEFAULT_IMPACT_BY_SUBJECT.get(merged["subject"], "unknown")
+        if merged.get("category") not in _VALID_CATEGORY:
+            merged["category"] = "industry" if merged["subject"] == "industry" else "sentiment"
         out.append(merged)
     doc["items"] = out
     return doc
@@ -335,6 +426,8 @@ def _normalize_llm_doc(
     doc["date"] = report_date or doc.get("date") or date.today().isoformat()
     doc.setdefault("date_range", doc["date"])
     doc.setdefault("items", [])
+    doc.setdefault("insights", [])
+    _sanitize_insights(doc)
     if not isinstance(doc.get("lead"), dict):
         doc["lead"] = {"text": "", "cite_refs": []}
     # stats + dashboard are recomputed by the trend stage — force clean values
@@ -353,7 +446,65 @@ def _normalize_llm_doc(
             doc["title"] = f"Omada 竞品情报周报 · {period}"
         else:
             doc["title"] = f"Omada 竞品情报日报 · {doc['date']}"
+    _ensure_lead(doc)
     return doc
+
+
+def _sanitize_insights(doc: dict[str, Any]) -> None:
+    """Drop malformed insights and coerce drifted enums so the closed schema
+    never fails on an LLM-authored insight (id/subject/title/body/cite_refs are
+    required; subject/omada_impact are closed enums)."""
+    out: list[dict[str, Any]] = []
+    for i, ins in enumerate(doc.get("insights") or []):
+        if not isinstance(ins, dict):
+            continue
+        title = (ins.get("title") or "").strip()
+        body = (ins.get("body") or "").strip()
+        if not title or not body:
+            continue  # required fields missing -> not a usable insight
+        ins["id"] = ins.get("id") or f"ins{i + 1}"
+        ins["title"] = title
+        ins["body"] = body
+        if ins.get("subject") not in _VALID_SUBJECT:
+            ins["subject"] = "competitor"
+        cr = ins.get("cite_refs")
+        ins["cite_refs"] = [n for n in cr if isinstance(n, int)] if isinstance(cr, list) else []
+        if ins.get("omada_impact") not in _VALID_IMPACT:
+            ins.pop("omada_impact", None)
+        if "takeaway" in ins and not isinstance(ins["takeaway"], str):
+            ins.pop("takeaway", None)
+        out.append(ins)
+    doc["insights"] = out
+
+
+def _ensure_lead(doc: dict[str, Any]) -> None:
+    """Guarantee a non-empty ``lead`` (导语).
+
+    The weekly LLM sometimes pours its summary into ``strategy`` and leaves the
+    lead empty (the bug that shipped a blank 周报导语). The prompt now requires a
+    lead; this is the safety net: synthesize a one-liner from the top insight
+    titles (cites stripped so the fallback never dangles), else from strategy.
+    """
+    lead = doc.get("lead")
+    if not isinstance(lead, dict):
+        lead = {"text": "", "cite_refs": []}
+        doc["lead"] = lead
+    lead.setdefault("cite_refs", [])
+    if (lead.get("text") or "").strip():
+        return
+    insights = [i for i in (doc.get("insights") or []) if isinstance(i, dict)]
+    titles = [_CITE_RE.sub("", (i.get("title") or "")).strip() for i in insights[:3]]
+    titles = [t for t in titles if t]
+    if titles:
+        lead["text"] = "本期看点：" + "；".join(titles) + "。"
+        return
+    strat = doc.get("strategy")
+    if isinstance(strat, dict):
+        body = strat.get("body") or ""
+        if not body and isinstance(strat.get("paras"), list) and strat["paras"]:
+            p0 = strat["paras"][0]
+            body = p0[1] if len(p0) > 1 else ""
+        lead["text"] = _CITE_RE.sub("", body).strip()
 
 
 def assign_cite_ids(doc: dict[str, Any]) -> dict[str, Any]:
@@ -421,6 +572,13 @@ def assign_cite_ids(doc: dict[str, Any]) -> dict[str, Any]:
             strat["cite_refs"] = [old_to_new.get(n, n) for n in strat["cite_refs"]]
         if isinstance(strat.get("paras"), list):
             strat["paras"] = [[p[0], _remap(p[1])] for p in strat["paras"]]
+    for ins in doc.get("insights") or []:
+        if not isinstance(ins, dict):
+            continue
+        if ins.get("body"):
+            ins["body"] = _remap(ins["body"])
+        if isinstance(ins.get("cite_refs"), list):
+            ins["cite_refs"] = [old_to_new.get(n, n) for n in ins["cite_refs"]]
     return doc
 
 
@@ -464,6 +622,45 @@ def _strip_unresolved_cites(doc: dict[str, Any]) -> None:
             strat["cite_refs"] = [n for n in strat["cite_refs"] if n in ref_set]
         if isinstance(strat.get("paras"), list):
             strat["paras"] = [[p[0], _fix(p[1])] for p in strat["paras"] if len(p) == 2]
+    for ins in doc.get("insights") or []:
+        if not isinstance(ins, dict):
+            continue
+        if ins.get("body"):
+            ins["body"] = _fix(ins["body"])
+        if isinstance(ins.get("cite_refs"), list):
+            ins["cite_refs"] = [n for n in ins["cite_refs"] if n in ref_set]
+
+
+def _prune_to_cited(doc: dict[str, Any], report_type: str) -> None:
+    """Synthesized mode: keep only items actually cited (by an insight, the lead,
+    or strategy) so ``references`` == the sources the report draws on (the
+    academic-citation model). Rebuilds sections + renumbers cite_ids 1..M.
+
+    Safeguard: if nothing is cited, keep the full pool (never empty the report).
+    """
+    used: set[int] = set()
+    lead = doc.get("lead") or {}
+    used |= _cites_in(lead.get("text", ""))
+    used |= {n for n in (lead.get("cite_refs") or []) if isinstance(n, int)}
+    strat = doc.get("strategy")
+    if isinstance(strat, dict):
+        used |= _cites_in(strat.get("body", ""))
+        for p in strat.get("paras") or []:
+            if len(p) > 1:
+                used |= _cites_in(p[1])
+        used |= {n for n in (strat.get("cite_refs") or []) if isinstance(n, int)}
+    for ins in doc.get("insights") or []:
+        used |= _cites_in(ins.get("body", ""))
+        used |= {n for n in (ins.get("cite_refs") or []) if isinstance(n, int)}
+
+    items = doc.get("items", [])
+    kept = [it for it in items if it.get("cite_id") in used]
+    if not kept or len(kept) == len(items):
+        return
+    doc["items"] = kept
+    doc["sections"] = _assemble_sections(kept, report_type, doc.get("insights") or [])
+    assign_cite_ids(doc)
+    _strip_unresolved_cites(doc)
 
 
 def _assert_citation_integrity(doc: dict[str, Any]) -> None:
@@ -496,6 +693,9 @@ def _assert_citation_integrity(doc: dict[str, Any]) -> None:
         used |= _refs_in(strat.get("body", ""))
         for para in strat.get("paras") or []:
             used |= _refs_in(para[1])
+    for ins in doc.get("insights") or []:
+        used |= _refs_in(ins.get("body", ""))
+        used |= {n for n in (ins.get("cite_refs") or []) if isinstance(n, int)}
     missing = used - ref_set
     if missing:
         raise ValueError(f"unresolvable {{{{cite:N}}}} references: {sorted(missing)}")
@@ -527,7 +727,10 @@ def refinalize(doc: dict[str, Any], *, report_type: str | None = None) -> dict[s
             "omada_impact", _DEFAULT_IMPACT_BY_SUBJECT.get(it["subject"], "unknown")
         )
     doc["items"] = items
-    doc["sections"] = _assemble_sections(items, rtype)
+    insights = doc.get("insights") or []
+    doc["sections"] = _assemble_sections(items, rtype, insights)
     doc = assign_cite_ids(doc)
     _strip_unresolved_cites(doc)
+    if insights:
+        _prune_to_cited(doc, rtype)
     return doc

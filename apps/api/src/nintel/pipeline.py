@@ -22,7 +22,7 @@ from typing import Any
 
 from .config import get_settings
 from .contract import Report, validate_against_schema
-from .engine import brand, classify, curate, ingest, render, select, trend
+from .engine import brand, classify, curate, ingest, render, select, shortlist, trend
 from .store.db import init_db
 
 
@@ -68,21 +68,28 @@ def build(
     if get_settings().llm_enabled:
         raw_items = brand.refine_omada_subjects(raw_items, as_of=as_of or date.today())
 
+    _as_of = as_of or date.today()
     reasons: dict[str, str] | None = None
-    selected: list[dict[str, Any]] | None = None
+    prefiltered: list[dict[str, Any]] | None = None  # 初筛: Python coarse pool
+    selected: list[dict[str, Any]] | None = None      # 精选: Sonnet-shortlisted
     if persist_items:
-        result = select.select_for_report(
-            raw_items, report_type=report_type, as_of=as_of or date.today()
-        )
-        selected, reasons = result.items, result.reasons
+        result = select.select_for_report(raw_items, report_type=report_type, as_of=_as_of)
+        prefiltered, reasons = result.items, result.reasons
+        selected = prefiltered
 
     settings = get_settings()
     use_dynamic = settings.llm_enabled and selected is not None
+    if use_dynamic:
+        # Sonnet 精选: value-select the wide Python 初筛 pool down to shortlist_max
+        # (judges decision-relevance, not engagement). Best-effort; falls back to
+        # the prefilter order on any LLM hiccup.
+        selected = shortlist.shortlist(
+            prefiltered, report_type=report_type, target_n=settings.shortlist_max, as_of=_as_of
+        )
     pool = selected if use_dynamic else raw_items
     classified = classify.classify(pool)
     # Dynamic reports get a date-derived id (daily: YYYY-MM-DD-daily, weekly:
     # YYYY-Www-weekly); offline keeps the seed id so the fixture round-trip holds.
-    _as_of = as_of or date.today()
     report_id = _dynamic_report_id(report_type, _as_of) if use_dynamic else None
     report = curate.curate(
         classified,
@@ -93,7 +100,7 @@ def build(
     )
 
     seed_dashboard = report.dashboard if report.type == "weekly" else None
-    report = trend.apply_trends(report, seed_dashboard=seed_dashboard)
+    report = trend.apply_trends(report, seed_dashboard=seed_dashboard, live=use_dynamic)
 
     # Weekly store-moves block (new products / price / stock changes) from the
     # UNIFI_CHANNELS Supabase store_recent_* tables — engine-owned tabular data,
@@ -101,9 +108,63 @@ def build(
     if report_type == "weekly" and settings.connector_mode == "live" and "B" in settings.live_sources:
         report = _attach_store_moves(report, _as_of, settings)
 
+    # Provenance funnel for the subtitle (采集 -> 初筛 -> 精选 -> 策展). Live/LLM path
+    # only — offline stays byte-identical to the seed (round-trip tests).
+    if use_dynamic:
+        report = _attach_funnel(report, raw_items, prefiltered, selected, settings)
+
     # Belt-and-suspenders: the produced report must be schema-valid.
     validate_against_schema(report.dump())
     return report
+
+
+# Raw source -> (funnel group key, friendly label). UniFi sources collapse into
+# one "UniFi" group; everything else maps 1:1.
+_FUNNEL_GROUP = {
+    "reddit": ("reddit", "Reddit"),
+    "youtube": ("youtube", "YouTube"),
+    "x": ("x", "X"),
+    "rss": ("rss", "行业 RSS"),
+    "omada_community": ("omada", "Omada 社区"),
+    "unifi_release": ("unifi", "UniFi"), "unifi_community": ("unifi", "UniFi"),
+    "unifi_product": ("unifi", "UniFi"), "unifi_store": ("unifi", "UniFi"),
+    "blog": ("unifi", "UniFi"),
+}
+
+
+def _attach_funnel(report, raw_items, prefiltered, shortlisted, settings):
+    """Attach ``report.funnel``: a true decreasing funnel for the subtitle —
+    采集(collected per source) -> 初筛(refined: Python prefilter) ->
+    精选(shortlisted: Sonnet) -> 策展(curated: cited), plus the byline."""
+    from .contract import load_report
+
+    counts: dict[str, list] = {}
+    for it in raw_items:
+        # Gemini deep-research (provenance G) shares source="rss"; surface it as
+        # its own funnel group so the premium research source is visible.
+        if it.get("provenance") == "G":
+            key, label = "gemini", "Gemini 深度研究"
+        else:
+            src = it.get("source") or "other"
+            key, label = _FUNNEL_GROUP.get(src, (src, src))
+        entry = counts.setdefault(key, [label, 0])
+        entry[1] += 1
+    collected = [
+        {"key": k, "label": v[0], "count": v[1]}
+        for k, v in sorted(counts.items(), key=lambda kv: -kv[1][1])
+    ]
+    doc = report.dump()
+    funnel: dict[str, Any] = {
+        "collected": collected,
+        "refined": len(prefiltered) if prefiltered is not None else len(raw_items),
+        "curated": len(doc.get("items", [])),
+        "byline": settings.report_byline,
+        "tz": "PT",
+    }
+    if shortlisted is not None:
+        funnel["shortlisted"] = len(shortlisted)
+    doc["funnel"] = funnel
+    return load_report(doc)
 
 
 def _attach_store_moves(report, as_of: date, settings):

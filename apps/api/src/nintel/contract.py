@@ -133,6 +133,9 @@ class Section(_Strict):
     icon: Optional[str] = None
     desc: Optional[str] = None
     items: list[str] = Field(default_factory=list)
+    # Optional insight.id refs (synthesized entries). When present the frontend
+    # renders these instead of per-item entries.
+    insights: Optional[list[str]] = None
 
 
 class Reference(_Strict):
@@ -175,6 +178,35 @@ class Stats(BaseModel):
     top_hot: list[TopHot] = Field(default_factory=list)
 
 
+class Insight(_Strict):
+    """A synthesized thematic entry combining multiple real items (``$defs.insight``)."""
+
+    id: str
+    subject: Subject
+    title: str
+    body: str
+    takeaway: Optional[str] = None
+    omada_impact: Optional[OmadaImpact] = None
+    cite_refs: list[int] = Field(default_factory=list)
+
+
+class FunnelSource(_Strict):
+    key: str
+    label: str
+    count: int
+
+
+class Funnel(_Strict):
+    """Pipeline provenance funnel for the subtitle (collected -> refined -> curated)."""
+
+    collected: list[FunnelSource] = Field(default_factory=list)
+    refined: Optional[int] = None       # 初筛: Python prefilter pool
+    shortlisted: Optional[int] = None   # 精选: Sonnet value-selected
+    curated: Optional[int] = None       # 策展: cited items
+    byline: Optional[str] = None
+    tz: Optional[str] = None
+
+
 class Report(_Strict):
     """The top-level ``report.json`` document."""
 
@@ -189,9 +221,13 @@ class Report(_Strict):
     tally: Optional[Tally] = None
     sections: list[Section]
     items: list[IntelItem]
+    # Synthesized thematic entries (v1.4); absent on legacy/offline reports.
+    insights: Optional[list[Insight]] = None
     references: list[Reference]
     store: Optional[list[StoreRow]] = None
     stats: Stats
+    # Pipeline provenance funnel for the subtitle (collected -> refined -> curated).
+    funnel: Optional[Funnel] = None
     # Free-form charts payload (schema: object|null, additionalProperties:true).
     dashboard: Optional[dict[str, Any]] = None
 

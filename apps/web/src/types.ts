@@ -131,6 +131,35 @@ export interface Section {
   icon?: string;
   desc?: string;
   items: string[];
+  /** Synthesized insight ids; when present the frontend renders these. */
+  insights?: string[];
+}
+
+/** A synthesized thematic entry combining multiple real items. */
+export interface Insight {
+  id: string;
+  subject: Subject;
+  title: string;
+  body: string;
+  takeaway?: string | null;
+  omada_impact?: Impact;
+  cite_refs: number[];
+}
+
+export interface FunnelSource {
+  key: string;
+  label: string;
+  count: number;
+}
+
+/** Pipeline provenance funnel for the subtitle (collected -> refined -> curated). */
+export interface Funnel {
+  collected: FunnelSource[];
+  refined?: number; // 初筛: Python prefilter pool
+  shortlisted?: number; // 精选: Sonnet value-selected
+  curated?: number; // 策展: cited items
+  byline?: string | null;
+  tz?: string | null;
 }
 
 export interface Reference {
@@ -224,9 +253,11 @@ export interface Report {
   tally?: Tally | null;
   sections: Section[];
   items: IntelItem[];
+  insights?: Insight[] | null;
   references: Reference[];
   store?: StoreRow[];
   stats: Stats;
+  funnel?: Funnel | null;
   dashboard?: Dashboard | null;
 }
 

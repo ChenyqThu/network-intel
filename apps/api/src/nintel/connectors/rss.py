@@ -100,10 +100,17 @@ def feed_urls(settings) -> list[str]:
 
 
 class RssReader:
-    """Reader for industry RSS feeds (source C)."""
+    """Reader for industry RSS feeds (source C).
+
+    Weekly-only: industry RSS feeds the 行业洞察 section, which is a weekly
+    concern. The daily focuses on 舆情 (Omada self + competitor), so ingest skips
+    this connector on dailies (see ingest cadence gate). This also keeps the
+    daily fast (no multi-hundred-feed poll for items it wouldn't use).
+    """
 
     name = "rss:industry"
     provenance = "C"
+    cadence = "weekly"
 
     def fetch(self, since: date) -> list[RawRow]:
         if connector_mode_guard(self.name, _LIVE_HINT, self.provenance):
@@ -113,6 +120,7 @@ class RssReader:
 
     def _fetch_live(self, since: date) -> list[RawRow]:  # pragma: no cover - network
         import logging
+        import os
         import time
 
         import feedparser  # optional [live] dependency
@@ -121,6 +129,10 @@ class RssReader:
 
         log = logging.getLogger(__name__)
         run_date = date.today().isoformat()
+        # Feeds are reverse-chronological, so the first N entries are the most
+        # recent. Cap per feed so the catalog doesn't flood the pool with
+        # hundreds of stale entries (select keeps only ~12 anyway).
+        max_per_feed = max(1, int(os.getenv("NINTEL_RSS_MAX_PER_FEED", "8")))
         rows: list[RawRow] = []
         for feed_url in feed_urls(get_settings()):
             try:
@@ -128,7 +140,7 @@ class RssReader:
             except Exception as exc:  # noqa: BLE001 - one bad feed must not kill the batch
                 log.warning("rss feed failed %s: %s", feed_url, exc)
                 continue
-            for e in parsed.entries:
+            for e in parsed.entries[:max_per_feed]:
                 pub = getattr(e, "published_parsed", None) or getattr(e, "updated_parsed", None)
                 published = time.strftime("%Y-%m-%d", pub) if pub else run_date
                 rows.append(

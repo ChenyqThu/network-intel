@@ -5,7 +5,10 @@
    ============================================================ */
 
 export function jumpTo(id: string): void {
-  const el = document.getElementById(id);
+  let el = document.getElementById(id);
+  // Synthesized reports have no per-item cards (id="item-N"); fall back to the
+  // numbered reference row (id="ref-N") so citation superscripts still scroll.
+  if (!el && id.startsWith('item-')) el = document.getElementById('ref-' + id.slice(5));
   if (!el) return;
   const navH =
     parseInt(

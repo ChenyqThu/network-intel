@@ -105,6 +105,14 @@ export default function App() {
         <span className="nav-date tnum">2026-06-01 · 09:30 PT</span>
         <button
           className="icon-btn"
+          onClick={() => navigate('/admin')}
+          title="审核台"
+          aria-label="审核台"
+        >
+          <Icon name="inbox" size={18} />
+        </button>
+        <button
+          className="icon-btn"
           onClick={toggleTheme}
           title={resolvedTheme === 'dark' ? '切换亮色' : '切换暗色'}
           aria-label="切换主题"
@@ -129,8 +137,8 @@ export default function App() {
           <div>
             <div className="foot-brand">Network Intel</div>
             <p className="foot-note">
-              内部竞品 &amp; 舆情情报 · 仅限 TP-Link 网络产品团队。每条结论可一键溯源验证——这是策展报告与普通信息聚合的本质区别。数据融合：UNIFI_CHANNELS
-              Supabase（一手官方）+ 个人情报流（Reddit / YouTube）。
+              内部竞品 &amp; 舆情情报 · 仅限 TP-Link 网络产品团队。每条结论可一键溯源验证——这是策展报告与普通信息聚合的本质区别。数据融合 · 多源：舆情流（Reddit
+              / YouTube）+ UNIFI_CHANNELS（一手官方）+ 行业 RSS + 深度研究。
             </p>
           </div>
           <div className="foot-links">

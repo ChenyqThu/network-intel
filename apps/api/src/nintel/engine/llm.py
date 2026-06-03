@@ -67,6 +67,13 @@ _BRAND_SCHEMA: dict[str, Any] = {
     "required": ["verdicts"],
 }
 
+_SHORTLIST_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {"selected": {"type": "array", "items": {"type": "integer"}}},
+    "required": ["selected"],
+}
+
 
 @lru_cache(maxsize=1)
 def _client():  # pragma: no cover - requires network/SDK
@@ -140,6 +147,51 @@ def classify_item(item: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover -
     )
     text = next((b.text for b in resp.content if b.type == "text"), "{}")
     return json.loads(text)
+
+
+def shortlist_items(
+    items: list[dict[str, Any]], *, report_type: str, target_n: int
+) -> list[int]:  # pragma: no cover - network
+    """Sonnet 精选: value-select the most decision-relevant candidates.
+
+    Returns kept candidate **indices** into ``items`` (highest value first). The
+    model only selects — it never generates content, so NO-FABRICATION holds.
+    """
+    settings = get_settings()
+    client = _client()
+    from .trend import heat_score
+
+    candidates = [
+        {
+            "i": i,
+            "subject": it.get("subject"),
+            "source": it.get("source"),
+            "provenance": it.get("provenance"),
+            "title": it.get("title"),
+            "summary": (it.get("summary") or "")[:240],
+            "date": it.get("date"),
+            "heat": int(heat_score(it)),
+            "sentiment": it.get("sentiment"),
+            "switch_intent": it.get("switch_intent"),
+            "category": it.get("category"),
+        }
+        for i, it in enumerate(items)
+    ]
+    user_payload = json.dumps(
+        {"report_type": report_type, "target_n": target_n, "candidates": candidates},
+        ensure_ascii=False,
+    )
+    resp = client.messages.create(
+        model=settings.sonnet_model,
+        max_tokens=2048,
+        system=_cached_system(_prompt("shortlist.md")),
+        messages=[{"role": "user", "content": user_payload}],
+        output_config={"format": {"type": "json_schema", "schema": _SHORTLIST_SCHEMA}},
+    )
+    text = next((b.text for b in resp.content if b.type == "text"), "{}")
+    data = json.loads(text)
+    sel = data.get("selected") if isinstance(data, dict) else None
+    return [i for i in sel if isinstance(i, int)] if isinstance(sel, list) else []
 
 
 def classify_brands(items: list[dict[str, Any]]) -> dict[int, str]:  # pragma: no cover - network

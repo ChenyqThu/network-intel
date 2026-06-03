@@ -54,6 +54,8 @@ class SelectConfig:
     max_items_daily: int
     daily_window_days: int = 2
     weekly_window_days: int = 7
+    # Wide coarse-pool cap fed to the Sonnet 精选 stage (live + LLM path).
+    prefilter_max: int = 80
 
     @classmethod
     def from_settings(cls, s: Settings) -> "SelectConfig":
@@ -65,6 +67,7 @@ class SelectConfig:
             max_items_daily=s.select_max_items_daily,
             daily_window_days=s.daily_window_days,
             weekly_window_days=s.weekly_window_days,
+            prefilter_max=s.select_prefilter_max,
         )
 
     def window_days(self, report_type: str) -> int:
@@ -209,7 +212,15 @@ def select_for_report(
     # was simply "never reported" counted as new regardless of age, so months-
     # old (even last-year) rows leaked into a daily. Stale/undated rows are
     # dropped here so they never reach select scoring, curate, or the report.
-    fresh_items = [it for it in items if is_fresh(it.get("date"), as_of, window)]
+    # Deep-research (provenance G) items are *period syntheses* produced at run
+    # time (after the week ends), so their run-date reads as "future" against a
+    # backdated window — exempt them from the freshness gate (they're always
+    # in-scope for the report being built). Everything else must be in-window.
+    fresh_items = [
+        it
+        for it in items
+        if it.get("provenance") == "G" or is_fresh(it.get("date"), as_of, window)
+    ]
     if len(fresh_items) != len(items):
         import logging
 
@@ -269,7 +280,9 @@ def select_for_report(
                 scored.append((it, decision.reason, heat))
 
     scored.sort(key=lambda t: (order_bucket(t[1], t[0]), -t[2]))
-    scored = _balance(scored, cfg.max_items_daily)
+    # Wide coarse pool (初筛) — the Sonnet 精选 stage value-selects from this; the
+    # final report cap is enforced downstream (shortlist_max), not here.
+    scored = _balance(scored, cfg.prefilter_max)
     return SelectionResult(
         items=[t[0] for t in scored],
         reasons={t[0]["url"]: t[1] for t in scored if t[1] and t[1] != REASON_NEW},
@@ -317,7 +330,10 @@ def _balance_by_source(scored: list, limit: int) -> list:
 
     by_src: "OrderedDict[str, list]" = OrderedDict()
     for t in scored:
-        by_src.setdefault(t[0].get("source", "?"), []).append(t)
+        # Gemini deep-research (provenance G) shares source="rss" with industry
+        # RSS (C); give it a distinct balance slot so it isn't crowded out.
+        src = "gemini" if t[0].get("provenance") == "G" else t[0].get("source", "?")
+        by_src.setdefault(src, []).append(t)
     out: list = []
     while len(out) < limit and any(by_src.values()):
         for src in list(by_src):

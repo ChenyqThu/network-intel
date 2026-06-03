@@ -44,7 +44,7 @@ export function Donut({
         <svg viewBox="0 0 150 150" width="150" height="150" style={{ transform: 'rotate(-90deg)' }}>
           <circle cx="75" cy="75" r={R} fill="none" stroke="var(--bg-subtle)" strokeWidth={sw} />
           {data.map((d, i) => {
-            const frac = d.count / sum,
+            const frac = sum > 0 ? d.count / sum : 0,
               len = C * frac;
             const el = (
               <circle
@@ -131,14 +131,21 @@ export function TrendLine({
     padX = 12,
     padB = 26,
     padT = 14;
-  const xs = series.length;
-  const allVals = series.flatMap((d) => [d.omada, d.unifi]);
-  const max = Math.max(...allVals) + 6,
-    min = Math.min(...allVals) - 6;
+  // Defense-in-depth: only plot points with finite values, and never divide by
+  // zero — a degenerate series must not emit NaN SVG (callers gate on length too).
+  const pts = (series || []).filter(
+    (d) => Number.isFinite(d?.omada) && Number.isFinite(d?.unifi),
+  );
+  const xs = pts.length;
+  if (xs < 2) return null;
+  const allVals = pts.flatMap((d) => [d.omada, d.unifi]);
+  const min = Math.min(...allVals) - 6;
+  let max = Math.max(...allVals) + 6;
+  if (max === min) max = min + 1;
   const px = (i: number) => padX + i * ((W - 2 * padX) / (xs - 1));
   const py = (v: number) => padT + (1 - (v - min) / (max - min)) * (H - padT - padB);
   const path = (key: 'omada' | 'unifi') =>
-    series.map((d, i) => `${i ? 'L' : 'M'}${px(i).toFixed(1)} ${py(d[key]).toFixed(1)}`).join(' ');
+    pts.map((d, i) => `${i ? 'L' : 'M'}${px(i).toFixed(1)} ${py(d[key]).toFixed(1)}`).join(' ');
   const area = (key: 'omada' | 'unifi') => `${path(key)} L ${px(xs - 1)} ${H - padB} L ${px(0)} ${H - padB} Z`;
   const grid = [max, (max + min) / 2, min].map((v) => Math.round(v));
   return (
@@ -179,10 +186,10 @@ export function TrendLine({
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        {series.map((d, i) => (
+        {pts.map((d, i) => (
           <circle key={i} cx={px(i)} cy={py(d.omada)} r={i === xs - 1 ? 4 : 0} fill="var(--color-primary)" />
         ))}
-        {series.map((d, i) => (
+        {pts.map((d, i) => (
           <text key={i} x={px(i)} y={H - 9} fontSize="9.5" fill="var(--fg-faint)" textAnchor="middle" fontFamily="var(--font-mono)">
             {d.wk}
           </text>

@@ -95,7 +95,11 @@ class Settings:
     resurface_heat_ratio: float = 2.0   # OR heat >= ratio * previous heat
     resurface_cooldown_days: int = 3    # min days since last_reported before re-surface
     select_min_heat: int = 0            # noise floor for a NEW item to qualify
-    select_max_items_daily: int = 12    # cap the selected pool
+    select_max_items_daily: int = 12    # cap the selected pool (Python-only / offline)
+    # Two-stage funnel (live + LLM): Python prefilter casts a wide net, then a
+    # Sonnet "精选" stage value-selects down to shortlist_max.
+    select_prefilter_max: int = 80      # 初筛: Python coarse pool fed to Sonnet
+    shortlist_max: int = 15             # 精选: Sonnet's value-selected count
     # Freshness window: an item only qualifies for a report if its publish date
     # is within this many days of the report's as_of date (and not in the
     # future). Without this, "never reported" was treated as "new", so months-
@@ -127,12 +131,16 @@ class Settings:
     # X-Admin-Token header). Override with NINTEL_ADMIN_PASSWORD in production.
     admin_password: str = "Lucien2026"
 
+    # Byline shown in the report subtitle funnel (NINTEL_REPORT_BYLINE).
+    report_byline: str = "Jarvis 🐲"
+
     # LLM (only used when llm_enabled)
     anthropic_api_key: str | None = None
     # Custom Anthropic-compatible endpoint (e.g. a claude-relay-service / crs
     # gateway). When set, the SDK is pointed here instead of api.anthropic.com.
     anthropic_base_url: str | None = None
     haiku_model: str = "claude-haiku-4-5-20251001"
+    sonnet_model: str = "claude-sonnet-4-6"
     opus_model: str = "claude-opus-4-8"
 
     # Gemini deep-research connector (source G). Only used when source G runs
@@ -204,6 +212,8 @@ def get_settings() -> Settings:
         resurface_cooldown_days=int(os.getenv("NINTEL_RESURFACE_COOLDOWN_DAYS", "3")),
         select_min_heat=int(os.getenv("NINTEL_SELECT_MIN_HEAT", "0")),
         select_max_items_daily=int(os.getenv("NINTEL_SELECT_MAX_ITEMS_DAILY", "12")),
+        select_prefilter_max=int(os.getenv("NINTEL_SELECT_PREFILTER_MAX", "80")),
+        shortlist_max=int(os.getenv("NINTEL_SHORTLIST_MAX", "15")),
         daily_window_days=int(os.getenv("NINTEL_DAILY_WINDOW_DAYS", "2")),
         weekly_window_days=int(os.getenv("NINTEL_WEEKLY_WINDOW_DAYS", "7")),
         rag_enabled=_env_bool("NINTEL_RAG_ENABLED", False),
@@ -222,9 +232,11 @@ def get_settings() -> Settings:
         kos_publish=_env_bool("NINTEL_KOS_PUBLISH", False),
         kos_slug_prefix=os.getenv("NINTEL_KOS_SLUG_PREFIX", "network-intel"),
         admin_password=os.getenv("NINTEL_ADMIN_PASSWORD", "Lucien2026"),
+        report_byline=os.getenv("NINTEL_REPORT_BYLINE", "Jarvis 🐲"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL") or None,
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
+        sonnet_model=os.getenv("NINTEL_SONNET_MODEL", "claude-sonnet-4-6"),
         opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),
         gemini_api_key=os.getenv("NINTEL_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or None,
         gemini_model=os.getenv("NINTEL_GEMINI_MODEL", "gemini-3.5-flash"),

@@ -68,11 +68,42 @@
           "title": { "type": "string" },
           "icon": { "type": "string", "description": "icon name (see frontend icon registry)" },
           "desc": { "type": "string" },
-          "items": { "type": "array", "items": { "type": "string" }, "description": "intel_item.id refs, order = display order" }
+          "items": { "type": "array", "items": { "type": "string" }, "description": "intel_item.id refs, order = display order" },
+          "insights": { "type": "array", "items": { "type": "string" }, "description": "optional insight.id refs (synthesized entries); when present the frontend renders these instead of per-item entries" }
         }
       }
     },
     "items": { "type": "array", "items": { "$ref": "#/$defs/intelItem" } },
+    "insights": {
+      "type": "array",
+      "description": "synthesized thematic entries (v1.4): each combines multiple real items into one curated insight, citing them academically. Optional — absent on legacy/offline reports, which render per-item.",
+      "items": { "$ref": "#/$defs/insight" }
+    },
+    "funnel": {
+      "type": ["object", "null"],
+      "description": "pipeline provenance funnel for the subtitle: collected per source -> refined pool -> curated (cited) count, + byline.",
+      "additionalProperties": false,
+      "properties": {
+        "collected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "label", "count"],
+            "additionalProperties": false,
+            "properties": {
+              "key": { "type": "string" },
+              "label": { "type": "string" },
+              "count": { "type": "integer" }
+            }
+          }
+        },
+        "refined": { "type": "integer", "description": "初筛: Python prefilter pool size" },
+        "shortlisted": { "type": "integer", "description": "精选: Sonnet value-selected count" },
+        "curated": { "type": "integer", "description": "策展: cited items in the report" },
+        "byline": { "type": ["string", "null"] },
+        "tz": { "type": ["string", "null"] }
+      }
+    },
     "references": {
       "type": "array",
       "items": {
@@ -175,6 +206,20 @@
         "switch_intent": { "type": ["boolean", "null"] },
         "date": { "type": "string", "format": "date" },
         "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "insight": {
+      "type": "object",
+      "required": ["id", "subject", "title", "body", "cite_refs"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "subject": { "enum": ["omada_self", "competitor", "industry"], "description": "which section the insight belongs to" },
+        "title": { "type": "string", "description": "synthesized theme title" },
+        "body": { "type": "string", "description": "synthesized prose; may enumerate sub-signals (①②③) with inline {{cite:N}} markers" },
+        "takeaway": { "type": ["string", "null"], "description": "the 💡 'so what' line for the team" },
+        "omada_impact": { "enum": ["threat", "opportunity", "neutral", "needs_fix", "feature_input", "strength_confirm", "unknown"], "description": "dominant impact tone for the insight" },
+        "cite_refs": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "description": "cite_ids of the real items this insight synthesizes" }
       }
     }
   }

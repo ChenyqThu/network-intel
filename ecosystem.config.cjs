@@ -8,6 +8,11 @@
 // The pm2 daemon runs independently of any terminal/Claude session, so these
 // stay up after you close the shell. Cloudflare tunnel forwards:
 //   daily.omada.ink -> localhost:5173 (web) -> proxies /api -> localhost:8000
+//
+// nintel-dev is a local-only Vite dev server (HMR) at localhost:5174: edit a
+// .tsx/.css file under apps/web/src and the browser updates instantly, no
+// rebuild. It proxies /api -> 8000, so it reads the SAME live backend data as
+// prod. Not tunneled (local preview only).
 const path = require('path');
 const ROOT = __dirname;
 
@@ -32,6 +37,18 @@ module.exports = {
       // would silently break the tunnel target.
       args: 'preview --port 5173 --strictPort',
       interpreter: 'none', // vite has its own node shebang
+      autorestart: true,
+      max_restarts: 10,
+    },
+    {
+      name: 'nintel-dev',
+      cwd: path.join(ROOT, 'apps/web'),
+      script: 'node_modules/.bin/vite',
+      // Dev server with HMR (on-the-fly transforms, no build step). Local only
+      // at localhost:5174 (5173 is the prod preview). Edit src/** -> instant
+      // reload. Proxies /api -> 8000 (same live backend as prod).
+      args: '--port 5174 --strictPort',
+      interpreter: 'none',
       autorestart: true,
       max_restarts: 10,
     },

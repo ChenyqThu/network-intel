@@ -13,6 +13,7 @@ import {
   ReportHeader,
   StrategyBlock,
   EmptyState,
+  InsightEntry,
 } from './ReportParts';
 import { Donut, SourceBars, TrendLine, KpiCard, SOURCE_COLORS } from './Charts';
 import type { ChartStyle } from './Charts';
@@ -22,6 +23,7 @@ import type {
   Report,
   Section,
   IntelItem,
+  Insight,
   ArchiveEntry,
   Dashboard,
   SectionKey,
@@ -71,6 +73,51 @@ function SectionSheet({
               idx={it.cite_id}
               citeId={it.cite_id}
               delay={i * 45}
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={{ marginTop: 18 }}>
+          <EmptyState text="本期该板块无硬信号——保持诚实，不凑数。" />
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ---- one synthesized section = header + multi-source insight cards ---- */
+function InsightSection({
+  section,
+  num,
+  insightsById,
+  byCiteId,
+}: {
+  section: Section;
+  num: string;
+  insightsById: Record<string, Insight>;
+  byCiteId: Record<number, IntelItem>;
+}) {
+  const insights = (section.insights || [])
+    .map((id) => insightsById[id])
+    .filter(Boolean) as Insight[];
+  return (
+    <section className="sec" id={'sec-' + section.key}>
+      <SectionHead
+        icon={section.icon}
+        num={num}
+        title={section.title}
+        count={insights.length}
+        desc={section.desc}
+        tone={section.key}
+      />
+      {insights.length ? (
+        <div className="insights">
+          {insights.map((ins, i) => (
+            <InsightEntry
+              key={ins.id}
+              insight={ins}
+              byCiteId={byCiteId}
+              num={`${Number(num)}.${i + 1}`}
             />
           ))}
         </div>
@@ -148,6 +195,20 @@ function DashboardSection({
     count: s.count,
     color: SOURCE_COLORS[i % SOURCE_COLORS.length],
   }));
+  // Multi-week editorial series only render when the data is real and complete.
+  // A single live report can't derive them yet, so guard each panel and show an
+  // honest empty-state instead of NaN charts (see backend trend.normalize_dashboard).
+  const trend = (db.sentimentTrend || []).filter(
+    (d) => Number.isFinite(d?.omada) && Number.isFinite(d?.unifi),
+  );
+  const pains = (db.pains || []).filter(
+    (p) => p && p.name && Number.isFinite(p.count) && Number.isFinite(p.of) && p.of > 0,
+  );
+  const vsOk = !!db.vs && ((db.vs.omada || 0) > 0 || (db.vs.unifi || 0) > 0);
+  const delta = (v?: number) =>
+    v == null || !Number.isFinite(v) ? undefined : `${v > 0 ? '+' : ''}${v} 环比`;
+  const dir = (v?: number) =>
+    v == null || !Number.isFinite(v) ? ('flat' as const) : v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
   return (
     <>
       {/* sentiment / pains / vs panels */}
@@ -159,29 +220,37 @@ function DashboardSection({
               <h3>口碑指数趋势</h3>
               <span className="sub">近 8 周 · 情感加权</span>
             </div>
-            <TrendLine series={db.sentimentTrend} style={chartStyle} />
+            {trend.length >= 2 ? (
+              <TrendLine series={trend} style={chartStyle} />
+            ) : (
+              <EmptyState text="口碑指数趋势需多周历史数据，正在积累中" />
+            )}
           </div>
           <div className="panel">
             <div className="panel-head">
               <h3>高频痛点 Top 5</h3>
               <span className="sub">UniFi 社区 · 本周</span>
             </div>
-            <div className="pain">
-              {db.pains.map((p, i) => (
-                <div className="pr" key={i}>
-                  <div className="pt">
-                    <span className="pn">{p.name}</span>
-                    <span className="pc tnum">{p.count}</span>
+            {pains.length ? (
+              <div className="pain">
+                {pains.map((p, i) => (
+                  <div className="pr" key={i}>
+                    <div className="pt">
+                      <span className="pn">{p.name}</span>
+                      <span className="pc tnum">{p.count}</span>
+                    </div>
+                    <div className="track">
+                      <div
+                        className="fill"
+                        style={{ width: (p.count / p.of) * 100 + '%', background: i < 2 ? 'var(--threat)' : 'var(--color-primary)' }}
+                      />
+                    </div>
                   </div>
-                  <div className="track">
-                    <div
-                      className="fill"
-                      style={{ width: (p.count / p.of) * 100 + '%', background: i < 2 ? 'var(--threat)' : 'var(--color-primary)' }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState text="高频痛点需更多样本统计，正在积累中" />
+            )}
           </div>
         </div>
         <div className="panel" style={{ marginTop: 16 }}>
@@ -189,26 +258,30 @@ function DashboardSection({
             <h3>Omada vs UniFi · 本周正面口碑</h3>
             <span className="sub">环比上周</span>
           </div>
-          <div className="vs">
-            <div className="vr">
-              <div className="vl">
-                <span>Omada</span>
-                <span className="tnum" style={{ color: 'var(--opp)' }}>{db.vs.omada} ▲</span>
+          {vsOk ? (
+            <div className="vs">
+              <div className="vr">
+                <div className="vl">
+                  <span>Omada</span>
+                  <span className="tnum" style={{ color: 'var(--opp)' }}>{db.vs.omada} ▲</span>
+                </div>
+                <div className="bar omada">
+                  <i style={{ width: db.vs.omada + '%' }} />
+                </div>
               </div>
-              <div className="bar omada">
-                <i style={{ width: db.vs.omada + '%' }} />
+              <div className="vr">
+                <div className="vl">
+                  <span>UniFi</span>
+                  <span className="tnum" style={{ color: 'var(--threat)' }}>{db.vs.unifi} ▼</span>
+                </div>
+                <div className="bar unifi">
+                  <i style={{ width: db.vs.unifi + '%' }} />
+                </div>
               </div>
             </div>
-            <div className="vr">
-              <div className="vl">
-                <span>UniFi</span>
-                <span className="tnum" style={{ color: 'var(--threat)' }}>{db.vs.unifi} ▼</span>
-              </div>
-              <div className="bar unifi">
-                <i style={{ width: db.vs.unifi + '%' }} />
-              </div>
-            </div>
-          </div>
+          ) : (
+            <EmptyState text="环比口碑对比需上周数据，正在积累中" />
+          )}
         </div>
       </section>
 
@@ -216,10 +289,10 @@ function DashboardSection({
       <section className="sec" id="sec-dashboard">
         <SectionHead icon="barChart" num={String(Number(num) + 1)} title="数据看板" desc="信号量 / 各源贡献 / 热度 Top" tone="industry" />
         <div className="kpi-grid">
-          <KpiCard label="本周信号量" icon="zap" value={db.signals} deltaText={`${db.signalsDelta > 0 ? '+' : ''}${db.signalsDelta} 环比`} dir={db.signalsDelta > 0 ? 'up' : db.signalsDelta < 0 ? 'down' : 'flat'} />
-          <KpiCard label="威胁 / 机会" icon="swords" value={`${db.threats}/${db.opps}`} deltaText={`${db.neutral} 中性`} dir="flat" />
-          <KpiCard label="新竞品动作" icon="sparkle" value={db.newCompetitor} deltaText={`${db.newCompetitorDelta > 0 ? '+' : ''}${db.newCompetitorDelta} 环比`} dir={db.newCompetitorDelta > 0 ? 'up' : db.newCompetitorDelta < 0 ? 'down' : 'flat'} />
-          <KpiCard label="平均热度" icon="trendUp" value={db.avgHeat} deltaText={`${db.avgHeatDelta > 0 ? '+' : ''}${db.avgHeatDelta} 环比`} dir={db.avgHeatDelta > 0 ? 'up' : db.avgHeatDelta < 0 ? 'down' : 'flat'} />
+          <KpiCard label="本周信号量" icon="zap" value={db.signals} deltaText={delta(db.signalsDelta)} dir={dir(db.signalsDelta)} />
+          <KpiCard label="威胁 / 机会" icon="swords" value={`${db.threats}/${db.opps}`} deltaText={`${db.neutral ?? 0} 中性`} dir="flat" />
+          <KpiCard label="新竞品动作" icon="sparkle" value={db.newCompetitor ?? 0} deltaText={delta(db.newCompetitorDelta)} dir={dir(db.newCompetitorDelta)} />
+          <KpiCard label="平均热度" icon="trendUp" value={db.avgHeat ?? '—'} deltaText={delta(db.avgHeatDelta)} dir={dir(db.avgHeatDelta)} />
         </div>
         <div className="dash-grid">
           <div className="panel">
@@ -268,6 +341,14 @@ function ReportBody({
   byId: Record<string, IntelItem>;
   chartStyle: ChartStyle;
 }) {
+  const insightsById = useMemo(
+    () => Object.fromEntries((report.insights || []).map((i) => [i.id, i])),
+    [report],
+  );
+  const byCiteId = useMemo(
+    () => Object.fromEntries(report.items.map((it) => [it.cite_id, it])),
+    [report],
+  );
   let n = 0;
   return (
     <>
@@ -286,6 +367,18 @@ function ReportBody({
               db={report.dashboard}
               num={num}
               chartStyle={chartStyle}
+            />
+          );
+        }
+        // Synthesized mode: render insight cards instead of per-item entries.
+        if (s.insights && s.insights.length) {
+          return (
+            <InsightSection
+              key={s.key}
+              section={s}
+              num={num}
+              insightsById={insightsById}
+              byCiteId={byCiteId}
             />
           );
         }
@@ -318,7 +411,11 @@ function ReportAside({
     } else if (s.key === 'store') {
       nav.push(['sec-store', s.title, String(s.items.length || '—')]);
     } else {
-      nav.push(['sec-' + s.key, s.title, String(s.items.length)]);
+      nav.push([
+        'sec-' + s.key,
+        s.title,
+        String((s.insights && s.insights.length) || s.items.length),
+      ]);
     }
   }
   nav.push(['refs', '参考来源', String(report.references.length)]);
@@ -348,11 +445,15 @@ function ReportAside({
         </nav>
         <div className="aside-div" />
         <div className="aside-note">
-          数据融合 · 双路
+          数据融合 · 多源策展
           <br />
-          <b>来源 B</b> UNIFI_CHANNELS Supabase（一手官方）
+          <b>来源 A</b> 舆情流 Reddit / YouTube
           <br />
-          <b>来源 A</b> 个人情报流 Reddit / YouTube
+          <b>来源 B</b> UNIFI_CHANNELS（一手官方）
+          <br />
+          <b>来源 C</b> 行业 RSS
+          <br />
+          <b>来源 G</b> 深度研究（周报）
           <br />
           <br />
           <a
@@ -377,6 +478,61 @@ function ReportAside({
         </div>
       </div>
     </aside>
+  );
+}
+
+/* ---- FunnelBar (subtitle: 采集 per source -> 精炼 -> 策展 · time · byline) ---- */
+function FunnelBar({ report }: { report: Report }) {
+  const f = report.funnel;
+  if (!f) return null;
+  const collected = f.collected || [];
+  const genTime = /T(\d{2}:\d{2})/.exec(report.generated_at)?.[1];
+  const themes = report.insights?.length || 0;
+  return (
+    <div className="funnel" aria-label="数据漏斗">
+      {collected.length > 0 && (
+        <span className="fstage">
+          {collected.map((c, i) => (
+            <span className="fsrc" key={c.key}>
+              {i > 0 && <span className="fdot">·</span>}
+              <span className="flabel">{c.label}</span>
+              <span className="fnum tnum">{c.count}</span>
+            </span>
+          ))}
+        </span>
+      )}
+      {f.refined != null && (
+        <>
+          <span className="farrow">→</span>
+          <span className="fstage">
+            初筛 <span className="fnum tnum">{f.refined}</span>
+          </span>
+        </>
+      )}
+      {f.shortlisted != null && (
+        <>
+          <span className="farrow">→</span>
+          <span className="fstage">
+            精选 <span className="fnum tnum">{f.shortlisted}</span>
+          </span>
+        </>
+      )}
+      {f.curated != null && (
+        <>
+          <span className="farrow">→</span>
+          <span className="fstage">
+            策展 <span className="fnum tnum">{f.curated}</span> 条
+            {themes ? ` · 综合 ${themes} 主题` : ''}
+          </span>
+        </>
+      )}
+      {(genTime || f.byline) && (
+        <span className="fby">
+          {genTime ? `${genTime} ${f.tz || 'PT'}` : ''}
+          {f.byline ? ` · ${f.byline}` : ''}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -456,6 +612,8 @@ export function ReportView({
           </>
         }
       />
+
+      <FunnelBar report={report} />
 
       <Lead report={report} />
 
