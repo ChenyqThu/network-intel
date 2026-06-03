@@ -145,8 +145,8 @@ def classify_item(item: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover -
         messages=[{"role": "user", "content": user_payload}],
         output_config={"format": {"type": "json_schema", "schema": _CLASSIFY_SCHEMA}},
     )
-    text = next((b.text for b in resp.content if b.type == "text"), "{}")
-    return json.loads(text)
+    text = next((b.text for b in resp.content if b.type == "text"), "")
+    return _loads_json(text)
 
 
 def shortlist_items(
@@ -267,6 +267,33 @@ def admin_edit(doc: dict[str, Any], instruction: str) -> dict[str, Any]:  # prag
     return _loads_report_json(text)
 
 
+def _loads_json(text: str) -> dict[str, Any]:
+    """Parse a JSON object from the model's text, tolerating ```json fences / prose.
+
+    Tiers that force ``json_schema`` output return clean JSON, but the curate
+    tier runs free-form (thinking + high effort) and occasionally wraps the
+    object in a markdown fence or a leading sentence. Try the raw text first,
+    otherwise extract the outermost ``{...}`` object. On genuinely empty/garbage
+    output raise a clear error (with a head sample) so failures are diagnosable
+    instead of a naked, context-free JSONDecodeError.
+    """
+
+    s = (text or "").strip()
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+    start, end = s.find("{"), s.rfind("}")
+    if start != -1 and end > start:
+        try:
+            return json.loads(s[start : end + 1])
+        except json.JSONDecodeError:
+            pass
+    raise ValueError(
+        f"LLM returned no parseable JSON (len={len(s)}, head={s[:120]!r})"
+    )
+
+
 def curate_report(
     items: list[dict[str, Any]], *, report_type: str, report_id: str
 ) -> dict[str, Any]:  # pragma: no cover - network
@@ -322,5 +349,5 @@ def curate_report(
         system=_cached_system(_prompt(prompt_name)),
         messages=[{"role": "user", "content": user_payload}],
     )
-    text = next((b.text for b in resp.content if b.type == "text"), "{}")
-    return json.loads(text)
+    text = next((b.text for b in resp.content if b.type == "text"), "")
+    return _loads_json(text)
