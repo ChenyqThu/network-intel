@@ -13,7 +13,9 @@ https://www.servethehome.com/feed/                 # switches / NICs / multi-gig
 https://wifinowglobal.com/feed/                     # Wi-Fi industry news (most on-topic)
 https://dongknows.com/feed/                         # reviews Omada/TP-Link-class gear directly
 https://www.networkworld.com/feed/                  # enterprise networking trade press
-https://feeds.packetpushers.net/                    # practitioner analysis / podcasts
+# DISABLED 2026-06-03 — practitioner podcasts: 1758 items ingested (91% of all
+# RSS volume), 0 ever used in a report. Pure noise without a relevance gate.
+# https://feeds.packetpushers.net/                  # practitioner analysis / podcasts
 https://api.theregister.com/api/v1/article?query=tag:networks&orderBy=published&site_id=2&remapper=rss&limit=25  # El Reg networking
 
 # ── Silicon vendors ──────────────────────────────────────────────────────────
