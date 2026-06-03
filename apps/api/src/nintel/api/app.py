@@ -96,6 +96,11 @@ def create_app() -> FastAPI:
         html = render_email(report)
         return Response(content=html, media_type="text/html")
 
+    # -- admin review console (password-gated /api/admin/*) ---------------
+    from .admin import create_admin_router
+
+    app.include_router(create_admin_router())
+
     # -- flat item stream with filters ------------------------------------
     @app.get("/api/items")
     def items(

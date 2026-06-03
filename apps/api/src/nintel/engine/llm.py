@@ -178,6 +178,43 @@ def classify_brands(items: list[dict[str, Any]]) -> dict[int, str]:  # pragma: n
     return {int(v["i"]): v["brand"] for v in data.get("verdicts", []) if "i" in v and "brand" in v}
 
 
+def _loads_report_json(text: str) -> dict[str, Any]:
+    """Parse a model's report JSON, tolerating ```json fences / stray prose."""
+
+    s = (text or "").strip()
+    if s.startswith("```"):
+        s = s.split("```", 2)[1] if s.count("```") >= 2 else s.strip("`")
+        if s.lstrip().lower().startswith("json"):
+            s = s.lstrip()[4:]
+    start, end = s.find("{"), s.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        s = s[start : end + 1]
+    return json.loads(s)
+
+
+def admin_edit(doc: dict[str, Any], instruction: str) -> dict[str, Any]:  # pragma: no cover - network
+    """Opus: revise a report per a free-text instruction (review-console edit).
+
+    Returns the revised report.json dict (the caller re-finalizes structure/cites
+    and validates). The prompt forbids inventing new items/URLs — only existing
+    real items may be edited / removed / reordered.
+    """
+
+    settings = get_settings()
+    client = _client()
+    payload = json.dumps({"instruction": instruction, "report": doc}, ensure_ascii=False)
+    resp = client.messages.create(
+        model=settings.opus_model,
+        max_tokens=16000,
+        thinking={"type": "adaptive"},
+        output_config={"effort": "high"},
+        system=_cached_system(_prompt("admin_edit.md")),
+        messages=[{"role": "user", "content": payload}],
+    )
+    text = next((b.text for b in resp.content if b.type == "text"), "{}")
+    return _loads_report_json(text)
+
+
 def curate_report(
     items: list[dict[str, Any]], *, report_type: str, report_id: str
 ) -> dict[str, Any]:  # pragma: no cover - network

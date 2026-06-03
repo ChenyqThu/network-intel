@@ -503,3 +503,31 @@ def _assert_citation_integrity(doc: dict[str, Any]) -> None:
 
 def default_generated_at() -> str:
     return datetime.now(timezone.utc).astimezone().replace(microsecond=0).isoformat()
+
+
+def refinalize(doc: dict[str, Any], *, report_type: str | None = None) -> dict[str, Any]:
+    """Re-finalize a hand/LLM-edited report into a contract-valid doc.
+
+    The admin review console lets an operator (or the LLM) restructure a report
+    — drop/reorder/edit items. This rebuilds the engine-owned structure from the
+    (edited) item list so the result stays consistent: prune stray keys, ensure
+    every item has an id/subject/impact, re-assemble the cadence's sections from
+    item subjects, re-number ``cite_id`` 1..N in display order + rebuild
+    ``references``, and drop any now-dangling ``{{cite:N}}``. Caller recomputes
+    stats/tally (trend) and validates against the schema.
+    """
+
+    doc = _clean_to_schema(dict(doc))
+    rtype = report_type or doc.get("type") or "daily"
+    items = doc.get("items") or []
+    for idx, it in enumerate(items):
+        it["id"] = it.get("id") or f"i{idx + 1}"
+        it.setdefault("subject", _SUBJECT_BY_SOURCE.get(it.get("source"), "competitor"))
+        it.setdefault(
+            "omada_impact", _DEFAULT_IMPACT_BY_SUBJECT.get(it["subject"], "unknown")
+        )
+    doc["items"] = items
+    doc["sections"] = _assemble_sections(items, rtype)
+    doc = assign_cite_ids(doc)
+    _strip_unresolved_cites(doc)
+    return doc

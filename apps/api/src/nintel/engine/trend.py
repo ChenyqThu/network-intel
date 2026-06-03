@@ -91,17 +91,49 @@ def apply_trends(report: Report, *, seed_dashboard: dict[str, Any] | None) -> Re
     doc["tally"] = compute_tally(items)
 
     if report.type == "weekly" and seed_dashboard is not None:
-        dashboard = dict(seed_dashboard)
-        # Refresh the item-derived heat list; keep editorial series as-is.
-        ranked = sorted(items, key=heat_score, reverse=True)[:5]
-        dashboard["topHeat"] = [
-            _heat_entry(it) for it in ranked
-        ]
-        doc["dashboard"] = dashboard
+        doc["dashboard"] = normalize_dashboard(dict(seed_dashboard), items, doc.get("tally") or {})
 
     from ..contract import load_report
 
     return load_report(doc)
+
+
+# Source key -> human label for the dashboard's source-mix chart.
+_SOURCE_LABEL = {
+    "unifi_release": "UniFi 发布", "unifi_community": "UniFi 社区", "blog": "UniFi 博客",
+    "unifi_store": "UniFi Store", "unifi_product": "UniFi 产品",
+    "reddit": "Reddit", "youtube": "YouTube", "rss": "行业 RSS", "omada_community": "Omada 社区",
+}
+
+
+def normalize_dashboard(
+    dash: dict[str, Any], items: list[dict[str, Any]], tally: dict[str, int]
+) -> dict[str, Any]:
+    """Coerce a weekly dashboard to contract-valid shapes from real item data.
+
+    The LLM sometimes emits ``sources`` as a ``{source: count}`` dict (the
+    frontend needs an array) or ``vs`` as a list (needs an object), which would
+    crash ``ReportView``. Item-derived aggregates (sources / topHeat / signal
+    counts) are recomputed from the curated items; the multi-week editorial
+    series (sentimentTrend / vs / pains) are only type-guarded, never invented.
+    """
+    by_source = compute_stats(items)["by_source"]
+    dash["sources"] = [
+        {"key": k, "label": _SOURCE_LABEL.get(k, k), "count": v}
+        for k, v in sorted(by_source.items(), key=lambda kv: -kv[1])
+    ]
+    ranked = sorted(items, key=heat_score, reverse=True)[:5]
+    dash["topHeat"] = [_heat_entry(it) for it in ranked]
+    dash["signals"] = tally.get("signals", len(items))
+    dash["threats"] = tally.get("threat", 0)
+    dash["opps"] = tally.get("opp", 0)
+    # Type-guard the editorial series so a mistyped LLM block can't crash the UI.
+    if not isinstance(dash.get("vs"), dict):
+        dash["vs"] = {"omada": 0, "unifi": 0}
+    for key in ("sentimentTrend", "pains"):
+        if not isinstance(dash.get(key), list):
+            dash[key] = []
+    return dash
 
 
 def _heat_entry(item: dict[str, Any]) -> dict[str, Any]:

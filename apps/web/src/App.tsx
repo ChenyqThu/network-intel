@@ -17,6 +17,7 @@ import { useTweaks, TweaksPanel, type Tweaks } from './components/TweaksPanel';
 import { ReportPage } from './pages/ReportPage';
 import { ArchivePage } from './pages/ArchivePage';
 import { AllItemsPage } from './pages/AllItemsPage';
+import { AdminPage } from './pages/AdminPage';
 
 const TWEAK_DEFAULTS: Tweaks = {
   primaryColor: '#0C6151',
@@ -67,6 +68,11 @@ export default function App() {
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
     'nav-link' + (isActive ? ' active' : '');
+
+  // Admin review console renders standalone (full-screen, no public shell).
+  if (location.pathname.startsWith('/admin')) {
+    return <AdminPage />;
+  }
 
   return (
     <div className="shell">
