@@ -1,10 +1,12 @@
 """Source G — Gemini deep-research reader.
 
-The "hard to fix-collect" half of the industry signal: protocol milestones, chip
-roadmaps/SDK moves, competitor strategy, and conference/forum disclosures that
-have no stable feed. Once a week we run a fixed set of themed prompts through
-Gemini with **Google Search grounding** and turn the grounded result into real,
-citable ``subject=industry`` items.
+The "hard to fix-collect" half of the industry signal: upstream supply chain
+(networking silicon + memory), competitor strategy, conference/event disclosures,
+plus low-frequency protocol breakthroughs and analyst market/share data — none of
+which have a stable feed. On each weekly build we run the themes *due* that week
+(see ``RESEARCH_THEMES``: weekly themes always; monthly themes on the first build
+of the month, with a wider lookback) through Gemini with **Google Search
+grounding**, turning the grounded result into real, citable ``subject=industry`` items.
 
 Two calls per theme — and why (the citation-integrity reason)
 -------------------------------------------------------------
@@ -35,14 +37,39 @@ seed rows — no network, no key. Live requires ``NINTEL_CONNECTOR_MODE=live`` +
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from .base import RawRow, connector_mode_guard, domain_of, seed_rows_for, tier_for_domain
 
-# Fixed weekly research themes (one grounded research pass each). Prompt bodies
-# live in prompts/research/<theme>.md so they iterate without code changes.
-RESEARCH_THEMES: tuple[str, ...] = ("protocol", "chip", "competitor", "conference")
+# Research themes with per-theme cadence + lookback. Prompt bodies live in
+# prompts/research/<theme>.md so they iterate without code changes.
+#
+# weekly  -> runs on every weekly build (the dynamic half: supply chain, friend
+#            moves, event disclosures).
+# monthly -> runs only on the first weekly build of the month, with a wider
+#            lookback — low-frequency, high-value signal (protocol breakthroughs as
+#            tech foresight; analyst market/share cycles) that would be noise weekly.
+RESEARCH_THEMES: dict[str, dict[str, Any]] = {
+    "supply_chain": {"cadence": "weekly", "lookback_days": None},
+    "competitor": {"cadence": "weekly", "lookback_days": None},
+    "conference": {"cadence": "weekly", "lookback_days": None},
+    "protocol": {"cadence": "monthly", "lookback_days": 31},
+    "market": {"cadence": "monthly", "lookback_days": 31},
+}
+
+
+def _themes_due(run_date: date) -> list[tuple[str, int | None]]:
+    """Themes to run on ``run_date``: weekly themes always; monthly themes only on
+    the first weekly build of the month (the Monday whose day-of-month is <= 7).
+    Returns ``(theme, lookback_days)`` pairs."""
+
+    first_build_of_month = run_date.day <= 7
+    return [
+        (theme, cfg["lookback_days"])
+        for theme, cfg in RESEARCH_THEMES.items()
+        if cfg["cadence"] == "weekly" or first_build_of_month
+    ]
 
 _LIVE_HINT = (
     "A live reader runs the prompts/research/*.md themes through Gemini with "
@@ -131,15 +158,17 @@ class GeminiResearchReader:
                 "or drop G from NINTEL_LIVE_SOURCES."
             )
 
-        run_date = date.today().isoformat()
+        run_date = date.today()
+        run_iso = run_date.isoformat()
         rows: list[RawRow] = []
-        for theme in RESEARCH_THEMES:
-            items, sources = _research_theme(_theme_prompt(theme, since), settings)
-            _archive_memo(theme, items, sources, run_date, settings)
+        for theme, lookback in _themes_due(run_date):
+            theme_since = run_date - timedelta(days=lookback) if lookback else since
+            items, sources = _research_theme(_theme_prompt(theme, theme_since), settings)
+            _archive_memo(theme, items, sources, run_iso, settings)
             for item in items:
                 if not (item.get("url") and item.get("title")):
                     continue
-                rows.append(map_research_item(item, run_date=run_date))
+                rows.append(map_research_item(item, run_date=run_iso))
         return rows
 
 

@@ -28,7 +28,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>NINTEL_CONNECTOR_MODE</key><string>live</string>
-    <key>NINTEL_LIVE_SOURCES</key><string>A,B,C</string>
+    <key>NINTEL_LIVE_SOURCES</key><string>A,B,C,G</string>
     <key>NINTEL_LLM_ENABLED</key><string>true</string>
     <key>NINTEL_RAG_ENABLED</key><string>true</string>
     <key>NINTEL_REVIEW_MODE</key><string>manual</string>
