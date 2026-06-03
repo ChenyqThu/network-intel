@@ -22,7 +22,7 @@ from typing import Any
 
 from .config import get_settings
 from .contract import Report, validate_against_schema
-from .engine import classify, curate, ingest, render, select, trend
+from .engine import brand, classify, curate, ingest, render, select, trend
 from .store.db import init_db
 
 
@@ -62,6 +62,12 @@ def build(
 
     raw_items = ingest.ingest(persist=persist_items)
 
+    # LLM brand disambiguation for source-A omada_self candidates (drops items
+    # merely named "Omada", e.g. the Omada E5 EV). Runs before select so noise
+    # never takes an omada_self slot; no-op when llm is disabled (offline/tests).
+    if get_settings().llm_enabled:
+        raw_items = brand.refine_omada_subjects(raw_items, as_of=as_of or date.today())
+
     reasons: dict[str, str] | None = None
     selected: list[dict[str, Any]] | None = None
     if persist_items:
@@ -89,8 +95,41 @@ def build(
     seed_dashboard = report.dashboard if report.type == "weekly" else None
     report = trend.apply_trends(report, seed_dashboard=seed_dashboard)
 
+    # Weekly store-moves block (new products / price / stock changes) from the
+    # UNIFI_CHANNELS Supabase store_recent_* tables — engine-owned tabular data,
+    # live + source-B only (offline keeps the seed/empty store, so tests hold).
+    if report_type == "weekly" and settings.connector_mode == "live" and "B" in settings.live_sources:
+        report = _attach_store_moves(report, _as_of, settings)
+
     # Belt-and-suspenders: the produced report must be schema-valid.
     validate_against_schema(report.dump())
+    return report
+
+
+def _attach_store_moves(report, as_of: date, settings):
+    """Populate the weekly report's ``store`` block from Supabase store_recent_*.
+
+    Best-effort: a Supabase hiccup or schema drift leaves the existing store
+    block untouched rather than failing the weekly build.
+    """
+    from datetime import timedelta
+
+    try:
+        from .connectors.supabase import fetch_store_moves
+        from .contract import load_report
+
+        since = as_of - timedelta(days=settings.weekly_window_days)
+        moves = fetch_store_moves(since)
+        if moves:
+            doc = report.dump()
+            doc["store"] = moves
+            return load_report(doc)
+    except Exception:  # noqa: BLE001 - store block is a nice-to-have, never fatal
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "store moves unavailable; weekly store block left as-is", exc_info=True
+        )
     return report
 
 

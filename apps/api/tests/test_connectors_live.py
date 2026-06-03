@@ -15,7 +15,14 @@ from nintel.connectors import RssReader, SentimentMonitorReader, SupabaseReader
 from nintel.connectors.base import RawRow
 from nintel.connectors.rss import map_rss_entry
 from nintel.connectors.sentiment_monitor import map_reddit_row, map_youtube_row
-from nintel.connectors.supabase import map_blog_row, map_community_row, map_release_row
+from nintel.connectors.supabase import (
+    map_blog_row,
+    map_community_row,
+    map_price_change,
+    map_release_row,
+    map_stock_change,
+    map_upcoming_product,
+)
 from nintel.engine.ingest import content_hash
 
 SINCE = date(2000, 1, 1)
@@ -160,6 +167,33 @@ def test_rss_mapper_parity():
     rr = map_rss_entry(live)
     assert rr.provenance == "C" and rr.source == "rss"
     assert content_hash(rr.source, rr.url, rr.title) == content_hash(c.source, c.url, c.title)
+
+
+def test_store_price_change_mapper():
+    # real store_recent_price_changes row shape (verified live)
+    row = {"sku": "UACC-HDD-E-16TB", "store_region": "us", "previous_price": 609,
+           "current_price": 719, "product_name": "UACC-HDD-E-16TB",
+           "product_title": 'Enterprise 3.5" HDD, 16 TB', "category_slug": "cables-accessories"}
+    m = map_price_change(row)
+    # friendly product_title preferred over the SKU in product_name
+    assert m["product"] == 'Enterprise 3.5" HDD, 16 TB' and m["cat"] == "cables accessories"
+    assert m["from"] == 609 and m["to"] == 719
+    assert m["dir"] == "up" and m["change"] == "+18%" and m["stock"] == "in"
+
+
+def test_store_stock_change_mapper_out():
+    row = {"sku": "U7-IW", "store_region": "us", "previous_stock": True,
+           "current_stock": False, "product_name": "U7 In-Wall", "category_slug": "wifi"}
+    m = map_stock_change(row)
+    assert m["product"] == "U7 In-Wall" and m["stock"] == "out"
+    assert m["dir"] == "down" and m["change"] == "缺货" and m["from"] is None
+
+
+def test_store_upcoming_product_mapper():
+    row = {"name": "UNVR-G2", "slug": "unvr-g2", "category_slug": "cameras-nvrs", "is_upcoming": True}
+    m = map_upcoming_product(row)
+    assert m["product"] == "UNVR-G2" and m["cat"] == "cameras nvrs"
+    assert m["dir"] == "new" and m["change"] == "新品" and m["stock"] == "out"
 
 
 def test_per_source_live_gating_routes_one_at_a_time(monkeypatch):

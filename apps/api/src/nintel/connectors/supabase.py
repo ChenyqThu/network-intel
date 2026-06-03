@@ -113,14 +113,112 @@ class SupabaseReader:
 
 
 def _pg_get(table: str, *, date_col: str, since: date, limit: int) -> list[dict[str, Any]]:  # pragma: no cover - network
+    return _pg_query(
+        table,
+        {date_col: f"gte.{since.isoformat()}", "order": f"{date_col}.desc", "limit": limit},
+    )
+
+
+def _pg_query(table: str, params: dict[str, Any]) -> list[dict[str, Any]]:  # pragma: no cover - network
     base = os.environ["SUPABASE_URL"].rstrip("/")
     key = os.environ["SUPABASE_KEY"]
-    qs = urllib.parse.urlencode(
-        {"select": "*", date_col: f"gte.{since.isoformat()}", "order": f"{date_col}.desc", "limit": limit}
-    )
+    q: dict[str, Any] = {"select": "*"}
+    q.update(params)
     req = urllib.request.Request(
-        f"{base}/rest/v1/{table}?{qs}",
+        f"{base}/rest/v1/{table}?{urllib.parse.urlencode(q)}",
         headers={"apikey": key, "Authorization": f"Bearer {key}", "Accept": "application/json"},
     )
     with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 (trusted host)
         return json.loads(resp.read().decode("utf-8", "replace"))
+
+
+# ---------------------------------------------------------------------------
+# Weekly store-moves block (new products / price / stock). These feed the
+# report's tabular ``store`` block, NOT the item stream — they have no narrative
+# and carry {product, cat, from, to, change, dir, stock} per the contract.
+# ---------------------------------------------------------------------------
+def _store_name(row: dict[str, Any]) -> str:
+    # Prefer the friendly title ("Enterprise 3.5\" HDD, 8 TB"); product_name in
+    # the store_recent_* tables is the SKU, so it's the last-resort fallback.
+    return (
+        row.get("product_title") or row.get("name") or row.get("title")
+        or row.get("product_name") or row.get("sku") or "?"
+    )
+
+
+def _clean_cat(slug: Any) -> str:
+    return str(slug or "").replace("-", " ").strip()
+
+
+def map_price_change(row: dict[str, Any]) -> dict[str, Any]:
+    """store_recent_price_changes row -> store move (pure; parity-tested)."""
+    prev, curr = row.get("previous_price"), row.get("current_price")
+    direction, change = "flat", ""
+    if isinstance(prev, (int, float)) and isinstance(curr, (int, float)):
+        direction = "up" if curr > prev else "down" if curr < prev else "flat"
+        if prev:
+            change = f"{(curr - prev) / prev * 100:+.0f}%"
+    return {
+        "product": _store_name(row), "cat": _clean_cat(row.get("category_slug")),
+        "from": prev, "to": curr, "change": change, "dir": direction, "stock": "in",
+    }
+
+
+def map_stock_change(row: dict[str, Any]) -> dict[str, Any]:
+    """store_recent_stock_changes row -> store move (pure; parity-tested)."""
+    prev, curr = bool(row.get("previous_stock")), bool(row.get("current_stock"))
+    change = "补货" if (curr and not prev) else "缺货" if (prev and not curr) else ""
+    return {
+        "product": _store_name(row), "cat": _clean_cat(row.get("category_slug")),
+        "from": None, "to": None, "change": change,
+        "dir": "up" if curr else "down", "stock": "in" if curr else "out",
+    }
+
+
+def map_upcoming_product(row: dict[str, Any]) -> dict[str, Any]:
+    """techspecs_upcoming_products row -> store move (new product; parity-tested)."""
+    return {
+        "product": _store_name(row), "cat": _clean_cat(row.get("category_slug")),
+        "from": None, "to": None, "change": "新品", "dir": "new", "stock": "out",
+    }
+
+
+def _dedupe_by_product(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        if r["product"] in seen:
+            continue
+        seen.add(r["product"])
+        out.append(r)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def fetch_store_moves(  # pragma: no cover - network
+    since: date, *, region: str = "us", new_n: int = 6, price_n: int = 6, stock_n: int = 6
+) -> list[dict[str, Any]]:
+    """Build the weekly ``store`` block: new products + price + stock changes.
+
+    Upcoming products are global; price/stock changes are region-scoped (one
+    region, default ``us``, to avoid the same SKU repeating across 8 locales).
+    Deduped by product so one product shows once per category.
+    """
+    moves: list[dict[str, Any]] = []
+    upcoming = _pg_query("techspecs_upcoming_products", {
+        "is_upcoming": "is.true", "last_changed_at": f"gte.{since.isoformat()}",
+        "order": "last_changed_at.desc", "limit": 40,
+    })
+    moves += _dedupe_by_product([map_upcoming_product(r) for r in upcoming], new_n)
+    prices = _pg_query("store_recent_price_changes", {
+        "store_region": f"eq.{region}", "change_time": f"gte.{since.isoformat()}",
+        "order": "change_time.desc", "limit": 80,
+    })
+    moves += _dedupe_by_product([map_price_change(r) for r in prices], price_n)
+    stocks = _pg_query("store_recent_stock_changes", {
+        "store_region": f"eq.{region}", "change_time": f"gte.{since.isoformat()}",
+        "order": "change_time.desc", "limit": 120,
+    })
+    moves += _dedupe_by_product([map_stock_change(r) for r in stocks], stock_n)
+    return moves

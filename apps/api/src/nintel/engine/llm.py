@@ -47,6 +47,26 @@ _CLASSIFY_SCHEMA: dict[str, Any] = {
     "required": ["summary", "category", "signal_strength"],
 }
 
+_BRAND_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "verdicts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "i": {"type": "integer"},
+                    "brand": {"type": "string", "enum": ["omada", "competitor", "other"]},
+                },
+                "required": ["i", "brand"],
+            },
+        },
+    },
+    "required": ["verdicts"],
+}
+
 
 @lru_cache(maxsize=1)
 def _client():  # pragma: no cover - requires network/SDK
@@ -120,6 +140,42 @@ def classify_item(item: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover -
     )
     text = next((b.text for b in resp.content if b.type == "text"), "{}")
     return json.loads(text)
+
+
+def classify_brands(items: list[dict[str, Any]]) -> dict[int, str]:  # pragma: no cover - network
+    """Haiku: disambiguate keyword-tagged candidates by real-world brand.
+
+    Returns ``{index -> "omada"|"competitor"|"other"}`` for the given items (in
+    order). Used to filter out things merely *named* Omada (e.g. the Omada E5 EV)
+    that keyword matching can't distinguish from TP-Link Omada networking.
+    """
+
+    settings = get_settings()
+    client = _client()
+    payload = json.dumps(
+        {
+            "items": [
+                {
+                    "i": i,
+                    "title": it.get("title"),
+                    "source": it.get("source"),
+                    "summary": (it.get("summary") or "")[:200],
+                }
+                for i, it in enumerate(items)
+            ]
+        },
+        ensure_ascii=False,
+    )
+    resp = client.messages.create(
+        model=settings.haiku_model,
+        max_tokens=2048,
+        system=_cached_system(_prompt("brand_filter.md")),
+        messages=[{"role": "user", "content": payload}],
+        output_config={"format": {"type": "json_schema", "schema": _BRAND_SCHEMA}},
+    )
+    text = next((b.text for b in resp.content if b.type == "text"), "{}")
+    data = json.loads(text)
+    return {int(v["i"]): v["brand"] for v in data.get("verdicts", []) if "i" in v and "brand" in v}
 
 
 def curate_report(
