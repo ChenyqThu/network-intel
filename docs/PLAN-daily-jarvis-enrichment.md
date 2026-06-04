@@ -65,10 +65,12 @@
 **问题**：Source A 的 YouTube 条目（来自 Notion sentiment-monitor）目前**只有标题**（可能有简介），
 **没有 transcript**，仅凭标题难判断相关性与影响。
 
-**方案（方向已定 2026-06-03 · 下次专项开干）**：**在上游 omada-sentiment-monitor 补抓** Reddit 评论原文
-+ YouTube transcript（它已经在抓 Reddit/YouTube），同步进 Notion → Source A 自动变富，network-intel 连接器不动；
-然后 classify 据此抽 `community_view`/`top_insight` + 基于 transcript 的实质摘要。
-需：API 凭证 + 改 omada-sentiment-monitor + Notion schema 加字段。
+**方案（方向已定 2026-06-03 · 修订）**：Reddit 评论/正文、YT 评论/描述**已在 Notion 页面 body**（监控已写入），
+所以 **network-intel 直接读页面 body markdown**（`GET /pages/{id}/markdown`，Notion-Version `2025-09-03`，可一次性读整页），
+对 shortlist 后的 ~12-15 项逐个读 → 解析 `<details>` 评论 + selftext + 「## 字幕」→ classify 抽
+`community_view`/`top_insight` + 基于 transcript 的实质摘要。**大头在本项目（读 body + 进管线）**；
+上游监控只剩"补 YouTube transcript 写进 body"一件小事（见 `omada-sentiment-monitor/HANDOFF-source-enrichment.md`）。
+前置：`map_notion_*` 保留 `page["id"]`；本项目已有 `NOTION_TOKEN`，**无需新凭证**。
 
 **关键：取 transcript 前必须先初筛，控制数量与成本**：
 - **互动门槛**：按观看量 / 点赞数过滤，低关注视频不取。
