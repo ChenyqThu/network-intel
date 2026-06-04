@@ -310,7 +310,11 @@ def _loads_json(text: str) -> dict[str, Any]:
 
 
 def curate_report(
-    items: list[dict[str, Any]], *, report_type: str, report_id: str
+    items: list[dict[str, Any]],
+    *,
+    report_type: str,
+    report_id: str,
+    recent_coverage: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:  # pragma: no cover - network
     """Opus: select/order/impact/lead/strategy → a full report.json dict.
 
@@ -323,10 +327,11 @@ def curate_report(
     client = _client()
     prompt_name = "curate_weekly.md" if report_type == "weekly" else "curate_daily.md"
 
-    # Optional RAG context (background facts + prior coverage for turning-point /
-    # "already covered" judgement). User-turn only, so the cached system prefix
-    # stays byte-stable.
-    context = None
+    # Context for the curator (user-turn only, so the cached system prefix stays
+    # byte-stable): optional RAG background + vector prior_coverage, plus the
+    # recent-coverage digest (B1) — the latter is independent of RAG (no
+    # embedder), the reliable temporal-dedup signal. All reference-only.
+    context: dict[str, Any] = {}
     from . import rag
 
     if rag.kb_enabled():
@@ -342,17 +347,18 @@ def curate_report(
             )
             if h:
                 prior.append({"item_id": it.get("id"), "prior": rag.summarize_hits(h)})
-        context = {
-            "background": rag.format_context(bg, budget_chars=6000),
-            "prior_coverage": prior,
-        }
+        context["background"] = rag.format_context(bg, budget_chars=6000)
+        context["prior_coverage"] = prior
+
+    if recent_coverage:
+        context["recent_coverage"] = recent_coverage
 
     user_payload = json.dumps(
         {
             "report_id": report_id,
             "report_type": report_type,
             "items": items,
-            "context": context,
+            "context": context or None,
         },
         ensure_ascii=False,
     )

@@ -89,6 +89,7 @@ def curate(
     generated_at: str | None = None,
     report_date: str | None = None,
     reasons: dict[str, str] | None = None,
+    recent_coverage: list[dict[str, Any]] | None = None,
 ) -> Report:
     """Assemble a validated :class:`Report` from classified items.
 
@@ -107,7 +108,9 @@ def curate(
     if settings.llm_enabled:  # pragma: no cover - network path
         from . import llm
 
-        doc = llm.curate_report(items, report_type=report_type, report_id=rid)
+        doc = llm.curate_report(
+            items, report_type=report_type, report_id=rid, recent_coverage=recent_coverage
+        )
         # LLM output can carry stray keys; the contract is closed
         # (additionalProperties:false). Prune to allowed keys, then fill the
         # structural fields we own + guarantee the cite bijection.
@@ -165,7 +168,11 @@ def _curate_fixture(
         # manifest is authoritative for the curated wording).
         merged.update(manifest_item)
         validate_subject_impact(merged)
-        curated_items.append(merged)
+        # Prune internal-only fields the live item carries (key_claim /
+        # community_view / top_insight / community_context / notion_page_id …) —
+        # the report contract is closed (additionalProperties:false). Mirrors the
+        # LLM path's _reconcile_items prune so the offline path stays schema-valid.
+        curated_items.append(_prune(merged, _ALLOWED_ITEM))
 
     # References: derive from the manifest, then assert cite_id integrity below.
     references = [dict(ref) for ref in seed["references"]]

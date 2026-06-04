@@ -22,7 +22,17 @@ from typing import Any
 
 from .config import get_settings
 from .contract import Report, validate_against_schema
-from .engine import brand, classify, curate, ingest, render, select, shortlist, trend
+from .engine import (
+    brand,
+    classify,
+    curate,
+    ingest,
+    recent_coverage,
+    render,
+    select,
+    shortlist,
+    trend,
+)
 from .store.db import init_db
 
 
@@ -97,12 +107,17 @@ def build(
     # Dynamic reports get a date-derived id (daily: YYYY-MM-DD-daily, weekly:
     # YYYY-Www-weekly); offline keeps the seed id so the fixture round-trip holds.
     report_id = _dynamic_report_id(report_type, _as_of) if use_dynamic else None
+    # Recent-coverage digest (live + LLM path only): distill the last few
+    # published reports so curate can frame recurring macro topics as 持续/升级/拐点
+    # instead of repeating them. Best-effort; reference-only (never citeable).
+    recent = recent_coverage.build_digest(report_type, _as_of) if use_dynamic else None
     report = curate.curate(
         classified,
         report_type=report_type,
         report_id=report_id,
         report_date=_as_of.isoformat() if use_dynamic else None,
         reasons=reasons if use_dynamic else None,
+        recent_coverage=recent,
     )
 
     seed_dashboard = report.dashboard if report.type == "weekly" else None
