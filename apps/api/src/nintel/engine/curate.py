@@ -406,7 +406,10 @@ def _reconcile_items(doc: dict[str, Any], input_items: list[dict[str, Any]]) -> 
             merged["omada_impact"] = _DEFAULT_IMPACT_BY_SUBJECT.get(merged["subject"], "unknown")
         if merged.get("category") not in _VALID_CATEGORY:
             merged["category"] = "industry" if merged["subject"] == "industry" else "sentiment"
-        out.append(merged)
+        # Drop internal-only fields carried on the classified item (key_claim,
+        # community_view/top_insight, community_context, notion_page_id, …): they
+        # fed the LLM but the report contract is closed (additionalProperties:false).
+        out.append(_prune(merged, _ALLOWED_ITEM))
     doc["items"] = out
     return doc
 
