@@ -362,13 +362,25 @@ def curate_report(
         },
         ensure_ascii=False,
     )
+    # max_tokens covers adaptive *thinking* + the full report JSON. A weekly
+    # (strategy + dashboard + 4-8 insights + items, all Chinese) was truncating at
+    # 16k — an incomplete JSON body _loads_json can't parse, which crashes the
+    # build with no fallback. Pin to the model's max (64k for claude-opus-4-8,
+    # probe-verified accepted) so output room is never the failure mode again; a
+    # real report only uses ~10-15k, so this is purely a ceiling.
+    # An explicit per-request timeout is REQUIRED at this size: the SDK otherwise
+    # raises "Streaming is required for operations that may take longer than 10
+    # minutes" (it estimates 3600*max_tokens/128000 s and refuses a non-streaming
+    # call past 600s). Passing timeout bypasses that guard and keeps the same
+    # non-streaming path that works at smaller sizes.
     resp = client.messages.create(
         model=settings.opus_model,
-        max_tokens=16000,
+        max_tokens=64000,
         thinking={"type": "adaptive"},
         output_config={"effort": "high"},
         system=_cached_system(_prompt(prompt_name)),
         messages=[{"role": "user", "content": user_payload}],
+        timeout=900.0,
     )
     text = next((b.text for b in resp.content if b.type == "text"), "")
     return _loads_json(text)
