@@ -58,6 +58,9 @@
 - `sentiment`（neg/neu/pos）+ `switch_intent`：社区情绪与「转投竞品」意向。多条负面 / 有转投意向的信号
   汇聚时，应在 `omada_impact` 与 `takeaway` 中体现为更高优先级的痛点 / 威胁，而不是淡化为个例。
 - `metrics`（赞 / 评论数）+ `signal_strength`：热度佐证，用于排序与判断某信号是否「正在形成共识」。
+- `community_view`：来自评论原文的**社区主流反应**——判断某信号是「个例」还是「正在形成共识」的关键依据；
+  在 `insight.body` 写「社区普遍认为…/已有多人复现…」远比单引一条帖子有说服力。
+- `top_insight`：评论里最有价值的洞察 / 关键争议——可作 insight 的有力佐证，或点出「值得注意的异议」。
 
 ## 输出
 只输出符合 schema 的 `report.json`（一个 JSON 对象），不要输出多余文字。

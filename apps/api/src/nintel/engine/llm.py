@@ -47,8 +47,16 @@ _CLASSIFY_SCHEMA: dict[str, Any] = {
         # An internal signal for curate (sharper leads + a stable cross-day dedup
         # key); pruned from the closed report contract, kept on the stored item.
         "key_claim": {"type": "string"},
+        # community_view / top_insight: extracted from community_context (the Notion
+        # page body — comments/discussion) when present; "" otherwise. Internal
+        # signals for curate, pruned from the closed report contract.
+        "community_view": {"type": "string"},
+        "top_insight": {"type": "string"},
     },
-    "required": ["summary", "category", "signal_strength", "key_claim"],
+    "required": [
+        "summary", "category", "signal_strength", "key_claim",
+        "community_view", "top_insight",
+    ],
 }
 
 _BRAND_SCHEMA: dict[str, Any] = {
@@ -139,6 +147,9 @@ def classify_item(item: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover -
             "raw_summary": item.get("summary"),
             "metrics": item.get("metrics"),
             "background": background,
+            # Notion page body (selftext + community comments + any transcript)
+            # for shortlisted Source-A items — the substance behind the title.
+            "community_context": item.get("community_context"),
         },
         ensure_ascii=False,
     )

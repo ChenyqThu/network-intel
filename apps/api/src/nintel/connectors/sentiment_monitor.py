@@ -174,6 +174,7 @@ def map_notion_reddit(page: dict[str, Any]) -> RawRow:
         "metrics": {"likes": _np_num(p.get("分数")), "comments": _np_num(p.get("评论数"))},
         "sentiment": sentiment, "relevance": _np_num(p.get("相关性得分")),
         "switch_intent": _np_check(p.get("切换意图")),
+        "notion_page_id": page.get("id"),
     }
     summary = _np_text(p.get("AI摘要")) or _np_text(p.get("核心主张"))
     if summary:
@@ -201,6 +202,7 @@ def map_notion_youtube(page: dict[str, Any]) -> RawRow:
             "comments": _np_num(p.get("评论数")),
         },
         "sentiment": sentiment, "relevance": _np_num(p.get("相关性得分")),
+        "notion_page_id": page.get("id"),
     }
     summary = _np_text(p.get("AI摘要"))
     if summary:
@@ -237,6 +239,51 @@ def _notion_query(db_id: str, since: date, *, date_prop: str = "发布时间", p
         if not data.get("has_more"):
             break
         cursor = data.get("next_cursor")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Page-body enrichment: the monitor writes selftext + community comments (and,
+# once it lands, the YouTube ``## 字幕`` transcript) into the Notion page *body*
+# via the Markdown API — content the database query's ``properties`` never carry.
+# For shortlisted Source-A items we pull that body so classify can read community
+# consensus / dissent / substance, not just the title + AI 摘要.
+# ---------------------------------------------------------------------------
+def _fetch_page_markdown(page_id: str) -> str:  # pragma: no cover - network
+    """A Notion page's body as markdown via the Markdown API (one call/page)."""
+    token = os.environ["NOTION_TOKEN"]
+    req = urllib.request.Request(
+        f"https://api.notion.com/v1/pages/{page_id}/markdown",
+        method="GET",
+        headers={"Authorization": f"Bearer {token}", "Notion-Version": "2025-09-03"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 (trusted host)
+        return json.loads(resp.read().decode("utf-8", "replace")).get("markdown", "")
+
+
+def enrich_with_page_bodies(
+    items: list[dict[str, Any]], *, budget_chars: int = 4000
+) -> list[dict[str, Any]]:  # pragma: no cover - network
+    """Attach each shortlisted Source-A item's Notion page body as ``community_context``.
+
+    Only provenance-``A`` items with a ``notion_page_id`` are fetched — the caller
+    passes the *shortlisted* set, so the fetch count is naturally capped. Best-effort:
+    any failure (no token, HTTP error, missing page) leaves the item untouched, so
+    the report never depends on the enrichment.
+    """
+    if not os.getenv("NOTION_TOKEN"):
+        return items
+    out: list[dict[str, Any]] = []
+    for it in items:
+        pid = it.get("notion_page_id")
+        if it.get("provenance") == "A" and pid:
+            try:
+                md = _fetch_page_markdown(pid)
+                if md and md.strip():
+                    it = {**it, "community_context": md.strip()[:budget_chars]}
+            except Exception:  # noqa: BLE001 - enrichment is best-effort
+                pass
+        out.append(it)
     return out
 
 

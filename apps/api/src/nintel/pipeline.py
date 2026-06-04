@@ -87,6 +87,12 @@ def build(
             prefiltered, report_type=report_type, target_n=settings.shortlist_max, as_of=_as_of
         )
     pool = selected if use_dynamic else raw_items
+    if use_dynamic:
+        # Pull each shortlisted Source-A item's Notion page body (selftext +
+        # community comments + any video transcript the monitor wrote) so classify
+        # can read consensus/dissent — only the ~shortlist_max items are fetched.
+        from .connectors import sentiment_monitor
+        pool = sentiment_monitor.enrich_with_page_bodies(pool)
     classified = classify.classify(pool)
     # Dynamic reports get a date-derived id (daily: YYYY-MM-DD-daily, weekly:
     # YYYY-Www-weekly); offline keeps the seed id so the fixture round-trip holds.
