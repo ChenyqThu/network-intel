@@ -103,10 +103,14 @@ class Settings:
     # Freshness window: an item only qualifies for a report if its publish date
     # is within this many days of the report's as_of date (and not in the
     # future). Without this, "never reported" was treated as "new", so months-
-    # old items leaked into a daily. daily=2 covers as_of + the prior day;
-    # weekly=7 covers the as_of ISO week (Mon..Sun when as_of is the Sunday).
-    daily_window_days: int = 2
+    # old items leaked into a daily. daily=3 covers as_of + the prior two days
+    # (weekend slow-burn); weekly=7 covers the as_of ISO week.
+    daily_window_days: int = 3
     weekly_window_days: int = 7
+    # Outer publish-date bound for first-capture slow-burn intake (select.py).
+    # 0 => no slow-burn band beyond the fresh window; widen to let items a few
+    # days past the window soft-pass into the low-priority tier for Sonnet.
+    select_intake_window_days: int = 0
 
     # RAG / vector knowledge base (WS5). Off by default; kb_enabled() also
     # requires llm_enabled (retrieved text only matters if the LLM consumes it).
@@ -214,8 +218,9 @@ def get_settings() -> Settings:
         select_max_items_daily=int(os.getenv("NINTEL_SELECT_MAX_ITEMS_DAILY", "12")),
         select_prefilter_max=int(os.getenv("NINTEL_SELECT_PREFILTER_MAX", "80")),
         shortlist_max=int(os.getenv("NINTEL_SHORTLIST_MAX", "15")),
-        daily_window_days=int(os.getenv("NINTEL_DAILY_WINDOW_DAYS", "2")),
+        daily_window_days=int(os.getenv("NINTEL_DAILY_WINDOW_DAYS", "3")),
         weekly_window_days=int(os.getenv("NINTEL_WEEKLY_WINDOW_DAYS", "7")),
+        select_intake_window_days=int(os.getenv("NINTEL_SELECT_INTAKE_WINDOW_DAYS", "0")),
         rag_enabled=_env_bool("NINTEL_RAG_ENABLED", False),
         rag_classify=_env_bool("NINTEL_RAG_CLASSIFY", False),
         embedder=os.getenv("NINTEL_EMBEDDER", "fastembed").strip().lower(),

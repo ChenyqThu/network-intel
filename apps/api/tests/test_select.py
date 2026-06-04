@@ -13,11 +13,16 @@ from nintel.engine.select import (
     REASON_NEW,
     REASON_SENTIMENT,
     REASON_SWITCH,
+    TIER_FRESH,
+    TIER_RESURFACE,
+    TIER_SLOWBURN,
+    TIER_UNDATED,
     Prior,
     SelectConfig,
     evaluate,
     is_fresh,
     order_bucket,
+    window_decision,
 )
 
 CFG = SelectConfig(heat_delta=50, heat_ratio=2.0, cooldown_days=3, min_heat=10, max_items_daily=12)
@@ -151,6 +156,75 @@ def test_order_bucket_precedence():
     assert order_bucket(REASON_HEAT, {}) == 1
     assert order_bucket(REASON_NEW, hi) == 2
     assert order_bucket(REASON_NEW, {}) == 3
+
+
+def test_order_bucket_slowburn_is_lowest():
+    # slow-burn / undated soft-passes sink below every routine bucket, even a
+    # would-be turning point (they're "only if there's room" items).
+    assert order_bucket(REASON_NEW, {}, slowburn=True) == 4
+    assert order_bucket(REASON_SWITCH, {}, slowburn=True) == 4
+
+
+# --- intake windowing (A1 slow-burn/re-surface revival + A2 undated soft-pass) ---
+def test_window_fresh_within_window():
+    keep, tier = window_decision(
+        {"date": "2026-06-09"}, is_reported=False, as_of=AS_OF, window=3, intake=3
+    )
+    assert keep and tier == TIER_FRESH
+
+
+def test_window_g_is_exempt_even_when_ancient():
+    keep, tier = window_decision(
+        {"provenance": "G", "date": "2020-01-01"},
+        is_reported=False, as_of=AS_OF, window=3, intake=3,
+    )
+    assert keep and tier == TIER_FRESH
+
+
+def test_window_reported_bypasses_date_gate():
+    # Old publish date, but previously reported -> re-surface tier (evaluate()
+    # still decides whether a turning point actually re-admits it). This is the
+    # A-iii fix: re-surface used to be unreachable for out-of-window content.
+    keep, tier = window_decision(
+        {"date": "2026-05-01"}, is_reported=True, as_of=AS_OF, window=3, intake=3
+    )
+    assert keep and tier == TIER_RESURFACE
+
+
+def test_window_undated_soft_passes():
+    for bad in (None, "", "not-a-date"):
+        keep, tier = window_decision(
+            {"date": bad}, is_reported=False, as_of=AS_OF, window=3, intake=3
+        )
+        assert keep and tier == TIER_UNDATED
+
+
+def test_window_slowburn_band_when_intake_widened():
+    # window 3, intake 5 -> a 4-day-old first-capture item rides the slow-burn tier
+    keep, tier = window_decision(
+        {"date": "2026-06-06"}, is_reported=False, as_of=AS_OF, window=3, intake=5
+    )
+    assert keep and tier == TIER_SLOWBURN
+
+
+def test_window_stale_and_future_dropped():
+    stale, _ = window_decision(
+        {"date": "2026-05-01"}, is_reported=False, as_of=AS_OF, window=3, intake=3
+    )
+    future, _ = window_decision(
+        {"date": "2026-06-11"}, is_reported=False, as_of=AS_OF, window=3, intake=3
+    )
+    assert not stale and not future
+
+
+def test_intake_days_defaults_to_window_else_widens():
+    base = dict(heat_delta=50, heat_ratio=2.0, cooldown_days=3, min_heat=0,
+                max_items_daily=12, daily_window_days=3, weekly_window_days=7)
+    cfg = SelectConfig(**base)
+    assert cfg.intake_days("daily") == 3 and cfg.intake_days("weekly") == 7
+    wide = SelectConfig(**base, intake_window_days=5)
+    assert wide.intake_days("daily") == 5      # widened
+    assert wide.intake_days("weekly") == 7     # max(5, 7) — never below the window
 
 
 # --- deterministic cite_id assignment -------------------------------------

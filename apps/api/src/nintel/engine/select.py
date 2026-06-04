@@ -56,6 +56,9 @@ class SelectConfig:
     weekly_window_days: int = 7
     # Wide coarse-pool cap fed to the Sonnet 精选 stage (live + LLM path).
     prefilter_max: int = 80
+    # Outer intake bound for first-capture slow-burn items (published older than
+    # the fresh window but still recent). 0 => no slow-burn band (intake = window).
+    intake_window_days: int = 0
 
     @classmethod
     def from_settings(cls, s: Settings) -> "SelectConfig":
@@ -68,10 +71,17 @@ class SelectConfig:
             daily_window_days=s.daily_window_days,
             weekly_window_days=s.weekly_window_days,
             prefilter_max=s.select_prefilter_max,
+            intake_window_days=s.select_intake_window_days,
         )
 
     def window_days(self, report_type: str) -> int:
         return self.weekly_window_days if report_type == "weekly" else self.daily_window_days
+
+    def intake_days(self, report_type: str) -> int:
+        """Outer publish-date bound for first-capture items. Defaults to the
+        fresh window (no slow-burn band) unless ``intake_window_days`` widens it."""
+        w = self.window_days(report_type)
+        return max(self.intake_window_days, w) if self.intake_window_days else w
 
 
 @dataclass(frozen=True)
@@ -136,6 +146,61 @@ def is_fresh(item_date: str | None, as_of: date, window_days: int) -> bool:
     return 0 <= delta < window_days
 
 
+def _parse_date(raw: str | None) -> date | None:
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(str(raw)[:10])
+    except (ValueError, TypeError):
+        return None
+
+
+# Intake tiers (drive the prefilter ordering bucket). "fresh"/"resurface" are
+# full-priority; "slowburn"/"undated" ride a low-priority bucket — included only
+# if there's room — and are decided downstream by the Sonnet 精选 stage.
+TIER_FRESH = "fresh"
+TIER_RESURFACE = "resurface"
+TIER_SLOWBURN = "slowburn"
+TIER_UNDATED = "undated"
+_LOW_TIERS = (TIER_SLOWBURN, TIER_UNDATED)
+
+
+def window_decision(
+    item: dict,
+    *,
+    is_reported: bool,
+    as_of: date,
+    window: int,
+    intake: int,
+) -> tuple[bool, str]:
+    """Decide whether an item clears the intake window, and in which tier.
+
+    Replaces the old binary publish-date freshness gate. Four ways in:
+    * ``provenance == 'G'`` deep-research syntheses are exempt (always in-scope);
+    * **previously reported** items bypass the publish-date gate so a genuine
+      turning point can re-surface them (``evaluate`` still decides if it does) —
+      this is what un-breaks re-surface for content older than the fresh window;
+    * **fresh** items (publish date inside ``window``) take the normal path;
+    * **slow-burn** (date in ``(window, intake]``) and **undated** items soft-pass
+      into a low-priority tier instead of being silently dropped, leaving the
+      value judgement to Sonnet rather than a blind date rule.
+    Stale (older than ``intake``) or future-dated items are dropped.
+    """
+    if item.get("provenance") == "G":
+        return True, TIER_FRESH
+    if is_reported:
+        return True, TIER_RESURFACE
+    d = _parse_date(item.get("date"))
+    if d is None:
+        return True, TIER_UNDATED
+    delta = (as_of - d).days
+    if 0 <= delta < window:
+        return True, TIER_FRESH
+    if 0 <= delta < intake:
+        return True, TIER_SLOWBURN
+    return False, ""
+
+
 def evaluate(
     prior: Prior | None,
     *,
@@ -180,8 +245,11 @@ def evaluate(
     return Decision(False, None)
 
 
-def order_bucket(reason: str | None, item: dict) -> int:
-    """Lower = surfaced higher. Turning points beat routine new items."""
+def order_bucket(reason: str | None, item: dict, *, slowburn: bool = False) -> int:
+    """Lower = surfaced higher. Turning points beat routine new items; slow-burn
+    and undated soft-passes sit in the lowest bucket (kept only if room remains)."""
+    if slowburn:
+        return 4
     if reason in (REASON_SWITCH, REASON_SENTIMENT):
         return 0
     if reason == REASON_HEAT:
@@ -207,36 +275,54 @@ def select_for_report(
     as_of_iso = as_of.isoformat()
     window = cfg.window_days(report_type)
 
-    # Freshness gate (the fix for stale content): only items whose publish date
-    # falls inside the report window are candidates. Without this, an item that
-    # was simply "never reported" counted as new regardless of age, so months-
-    # old (even last-year) rows leaked into a daily. Stale/undated rows are
-    # dropped here so they never reach select scoring, curate, or the report.
-    # Deep-research (provenance G) items are *period syntheses* produced at run
-    # time (after the week ends), so their run-date reads as "future" against a
-    # backdated window — exempt them from the freshness gate (they're always
-    # in-scope for the report being built). Everything else must be in-window.
-    fresh_items = [
-        it
-        for it in items
-        if it.get("provenance") == "G" or is_fresh(it.get("date"), as_of, window)
-    ]
-    if len(fresh_items) != len(items):
-        import logging
-
-        logging.getLogger(__name__).info(
-            "select: freshness window=%dd dropped %d/%d stale items (as_of=%s type=%s)",
-            window, len(items) - len(fresh_items), len(items), as_of_iso, report_type,
-        )
-    items = _collapse_crossposts(fresh_items)
+    intake = cfg.intake_days(report_type)
 
     from ..store.db import session_scope
     from ..store.models import HeatSnapshotRow, IntelItemRow
 
-    scored: list[tuple[dict, str | None, float]] = []
+    scored: list[tuple[dict, str | None, float, str]] = []
     with session_scope() as s:
+        # content_hashes reported at least once — these bypass the publish-date
+        # window so a turning point can re-surface them (evaluate() still gates
+        # whether they actually re-enter). One cheap indexed read.
+        reported: set[str] = set(
+            s.scalars(
+                sa_select(IntelItemRow.content_hash).where(IntelItemRow.report_count > 0)
+            ).all()
+        )
+
+        # Intake windowing (replaces the old binary freshness drop). Each item
+        # that clears the window is tagged with a tier: G / fresh / re-surface
+        # take full priority; slow-burn + undated soft-pass into a low bucket so
+        # the value call is Sonnet's, not a blind date rule. Only provably stale
+        # (older than the intake bound) or future-dated rows are dropped here.
+        # Collapse cross-posts after windowing, so a kept copy keeps its tier.
+        windowed: list[dict] = []
+        tier_by_ch: dict[str, str] = {}
+        dropped = 0
         for it in items:
             ch = content_hash(it["source"], it["url"], it["title"])
+            keep, tier = window_decision(
+                it, is_reported=ch in reported, as_of=as_of, window=window, intake=intake
+            )
+            if keep:
+                tier_by_ch[ch] = tier
+                windowed.append(it)
+            else:
+                dropped += 1
+        if dropped:
+            import logging
+
+            logging.getLogger(__name__).info(
+                "select: window=%dd intake=%dd dropped %d/%d out-of-window items "
+                "(as_of=%s type=%s)",
+                window, intake, dropped, len(items), as_of_iso, report_type,
+            )
+        items = _collapse_crossposts(windowed)
+
+        for it in items:
+            ch = content_hash(it["source"], it["url"], it["title"])
+            tier = tier_by_ch.get(ch, TIER_FRESH)
             heat = float(heat_score(it))
             sentiment = it.get("sentiment")
             switch_intent = bool(it.get("switch_intent"))
@@ -254,6 +340,13 @@ def select_for_report(
                 else None
             )
 
+            # A2: give an undated soft-pass a real effective date so it carries a
+            # `date` downstream — the day we first observed it (else today).
+            if tier == TIER_UNDATED and not it.get("date"):
+                it["date"] = (
+                    row.first_seen if row is not None and row.first_seen else as_of_iso
+                )
+
             decision = evaluate(
                 prior,
                 heat=heat,
@@ -263,23 +356,33 @@ def select_for_report(
                 cfg=cfg,
             )
 
-            _upsert_snapshot(s, HeatSnapshotRow, ch, as_of_iso, heat, it, sentiment)
-
-            if row is not None:
-                if row.first_seen is None:
-                    row.first_seen = as_of_iso
-                row.last_seen = as_of_iso
-                row.last_heat = heat
-                row.peak_heat = max(row.peak_heat or 0.0, heat)
-                row.last_sentiment = sentiment
-                row.last_switch_intent = switch_intent
-                if decision.reason and decision.reason.startswith("resurface"):
-                    row.state = "resurfaced"
+            # Advance per-item state exactly as before: only for items already
+            # publish-date-fresh (the old gate) OR actually selected. This keeps
+            # the re-surface heat baseline = heat at last report (not yesterday),
+            # so A-iii only *enables* re-surface for older content — it doesn't
+            # retune its sensitivity (deferred to the resurface-tuning session).
+            advance = (
+                decision.eligible
+                or it.get("provenance") == "G"
+                or is_fresh(it.get("date"), as_of, window)
+            )
+            if advance:
+                _upsert_snapshot(s, HeatSnapshotRow, ch, as_of_iso, heat, it, sentiment)
+                if row is not None:
+                    if row.first_seen is None:
+                        row.first_seen = as_of_iso
+                    row.last_seen = as_of_iso
+                    row.last_heat = heat
+                    row.peak_heat = max(row.peak_heat or 0.0, heat)
+                    row.last_sentiment = sentiment
+                    row.last_switch_intent = switch_intent
+                    if decision.reason and decision.reason.startswith("resurface"):
+                        row.state = "resurfaced"
 
             if decision.eligible:
-                scored.append((it, decision.reason, heat))
+                scored.append((it, decision.reason, heat, tier))
 
-    scored.sort(key=lambda t: (order_bucket(t[1], t[0]), -t[2]))
+    scored.sort(key=lambda t: (order_bucket(t[1], t[0], slowburn=t[3] in _LOW_TIERS), -t[2]))
     # Wide coarse pool (初筛) — the Sonnet 精选 stage value-selects from this; the
     # final report cap is enforced downstream (shortlist_max), not here.
     scored = _balance(scored, cfg.prefilter_max)
