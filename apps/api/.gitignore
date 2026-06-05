@@ -18,6 +18,9 @@ data/*.db
 # Gemini deep-research memo archive (source G runtime output)
 data/research/
 
+# Weekly merge/recovery snapshots (runtime output)
+data/recovery/
+
 # Review queues (keep the dirs, ignore contents)
 data/pending/*
 data/published/*
