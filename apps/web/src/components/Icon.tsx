@@ -162,33 +162,7 @@ export function SourceGlyph({ kind }: { kind?: string }) {
   }
 }
 
-/* ---- brand mark (broadcast arcs + node, rounded plate) ---- */
+/* ---- brand mark (Network Intel logo) ---- */
 export function BrandMark() {
-  return (
-    <svg className="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect x="0.5" y="0.5" width="31" height="31" rx="8" fill="var(--color-primary)" />
-      <circle cx="11" cy="21" r="2.6" fill="#fff" />
-      <path
-        d="M16 18.5a8 8 0 0 0-5.5-2.2"
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        opacity=".95"
-      />
-      <path
-        d="M19.5 15a12.5 12.5 0 0 0-9-3.6"
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        opacity=".6"
-      />
-      <path
-        d="M23 11.4A17 17 0 0 0 10.6 6.4"
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        opacity=".32"
-      />
-    </svg>
-  );
+  return <img className="brand-mark" src="/logo.png" alt="Network Intel" />;
 }

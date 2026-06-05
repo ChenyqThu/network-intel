@@ -128,7 +128,7 @@ p { margin:0; text-wrap:pretty; }
   border-bottom:1px solid var(--border);
 }
 .brand { display:flex; align-items:center; gap:11px; cursor:pointer; user-select:none; }
-.brand-mark { width:30px; height:30px; flex:none; }
+.brand-mark { width:30px; height:30px; flex:none; object-fit:contain; display:block; }
 .brand-name { font-weight:800; font-size:17px; letter-spacing:-.025em; line-height:1; }
 .brand-name .intel { color:var(--color-primary); }
 .brand-tag {
@@ -507,6 +507,19 @@ p { margin:0; text-wrap:pretty; }
 .foot-links { margin-left:auto; display:flex; gap:18px; font-size:13px; }
 .foot-links a { color:var(--fg-tertiary); cursor:pointer; }
 .foot-links a:hover { color:var(--color-primary); }
+
+/* ===== back to top ===== */
+.back-to-top {
+  position:fixed; left:24px; bottom:24px; z-index:39;
+  width:42px; height:42px; display:flex; align-items:center; justify-content:center;
+  color:#fff; background:var(--color-primary); border:none; border-radius:50%;
+  cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,.18);
+  transition:transform .15s var(--ease), box-shadow .15s var(--ease), opacity .2s var(--ease);
+}
+.back-to-top:hover { transform:translateY(-2px); box-shadow:0 10px 26px rgba(0,0,0,.24); }
+@media (prefers-reduced-motion:no-preference) {
+  .back-to-top { animation:fadeUp .25s var(--ease) both; }
+}
 
 /* entrance */
 @media (prefers-reduced-motion:no-preference){

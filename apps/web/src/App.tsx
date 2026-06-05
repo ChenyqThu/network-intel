@@ -42,6 +42,28 @@ function useSystemDark(): boolean {
   return dark;
 }
 
+/* Floating "back to top" — appears after scrolling past the fold. */
+function BackToTop() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShow(window.scrollY > 400);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  if (!show) return null;
+  return (
+    <button
+      className="back-to-top"
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      title="返回顶部"
+      aria-label="返回顶部"
+    >
+      <Icon name="arrowUp" size={20} />
+    </button>
+  );
+}
+
 export default function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const navigate = useNavigate();
@@ -169,17 +191,11 @@ export default function App() {
             >
               全部条目
             </a>
-            <a
-              href="https://www.feishu.cn/docx/TXrNdLo7uoc8mfx9NIec45Z7n8c"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              PRD ↗
-            </a>
           </div>
         </div>
       </footer>
 
+      <BackToTop />
       <TweaksPanel title="Tweaks" tweaks={tweaks} setTweak={setTweak} />
     </div>
   );
