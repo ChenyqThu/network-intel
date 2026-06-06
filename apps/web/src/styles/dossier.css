@@ -248,10 +248,8 @@ p { margin:0; text-wrap:pretty; }
 
 /* source badge — glyph + label + channel + tier (neutral, identity by glyph) */
 .src { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; }
-.src-ico { width:22px; height:22px; border-radius:6px; display:grid; place-items:center; flex:none; border:1px solid var(--border); }
-.src-ico svg { width:13px; height:13px; }
-.src.official .src-ico { color:var(--color-primary); background:var(--primary-tint); border-color:color-mix(in oklab,var(--color-primary) 22%,transparent); }
-.src.community .src-ico { color:var(--fg-secondary); background:var(--bg-subtle); }
+.src-ico { width:22px; height:22px; border-radius:6px; display:grid; place-items:center; flex:none; overflow:hidden; background:var(--bg-subtle); border:1px solid var(--border); }
+.src-ico .src-glyph { width:16px; height:16px; display:block; object-fit:contain; }
 .src-name { color:var(--fg-primary); }
 .src-chan { color:var(--fg-tertiary); font-weight:500; }
 .tier { font-family:var(--font-mono); font-size:10px; font-weight:600; letter-spacing:.03em; padding:3px 7px; border-radius:var(--radius-xs); white-space:nowrap; }
@@ -647,5 +645,5 @@ p { margin:0; text-wrap:pretty; }
 .insight-src .src-sep { color:var(--border-strong); }
 .insight-src .src-chip { display:inline-flex; align-items:center; gap:5px; color:var(--fg-secondary); text-decoration:none; padding:2px 5px; border-radius:var(--radius-sm); font-size:12.5px; }
 .insight-src .src-chip:hover { color:var(--color-primary); background:var(--bg-subtle); }
-.insight-src .src-chip svg { flex:none; width:14px; height:14px; }
+.insight-src .src-chip .src-glyph { flex:none; width:15px; height:15px; display:block; object-fit:contain; }
 .insight-src .src-name { max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

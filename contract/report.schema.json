@@ -180,7 +180,7 @@
         "source_tier": { "enum": ["official", "community"] },
         "source_label": { "type": "string", "description": "source badge display text" },
         "tier_label": { "type": "string" },
-        "glyph": { "type": "string", "description": "source glyph: unifi/reddit/youtube/rss/x" },
+        "glyph": { "type": "string", "description": "source glyph: unifi/reddit/youtube/rss/x/gemini" },
         "provenance": { "enum": ["A", "B", "C", "D", "G", "H"], "description": "A=sentiment-monitor B=UNIFI_CHANNELS C=industry RSS D=strategy G=Gemini deep-research H=HTML scrape" },
         "title": { "type": "string" },
         "stage": { "type": ["string", "null"], "description": "firmware stage GA/RC/EA" },

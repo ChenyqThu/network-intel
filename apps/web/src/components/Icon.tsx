@@ -5,6 +5,23 @@
    ============================================================ */
 import type { CSSProperties } from 'react';
 
+/* source brand logos — real marks, saved as bundled assets (Vite hashes them) */
+import unifiLogo from '../assets/sources/unifi.svg';
+import redditLogo from '../assets/sources/reddit.svg';
+import youtubeLogo from '../assets/sources/youtube.svg';
+import rssLogo from '../assets/sources/rss.svg';
+import xLogo from '../assets/sources/x.svg';
+import geminiLogo from '../assets/sources/gemini.svg';
+
+const SOURCE_LOGOS: Record<string, string> = {
+  unifi: unifiLogo,
+  reddit: redditLogo,
+  youtube: youtubeLogo,
+  rss: rssLogo,
+  x: xLogo,
+  gemini: geminiLogo,
+};
+
 export const ICONS: Record<string, string> = {
   activity: 'M22 12h-4l-3 9L9 3l-3 9H2',
   swords:
@@ -85,81 +102,20 @@ export function Icon({ name, size = 18, style, cls }: IconProps) {
   );
 }
 
-/* ---- source glyphs (brand identity marks) ---- */
+/* ---- source glyphs (real brand logos, bundled SVG assets) ---- */
 export function SourceGlyph({ kind }: { kind?: string }) {
-  switch (kind) {
-    case 'unifi':
-      return (
-        <svg viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.2" />
-          <path
-            d="M12 7v5a3 3 0 0 0 6 0"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          />
-        </svg>
-      );
-    case 'reddit':
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12.5" r="8.5" />
-          <circle cx="8.7" cy="12.5" r="1.1" fill="currentColor" stroke="none" />
-          <circle cx="15.3" cy="12.5" r="1.1" fill="currentColor" stroke="none" />
-          <path d="M8.7 15.5c1.8 1.2 4.8 1.2 6.6 0" />
-          <circle cx="17.5" cy="6.5" r="1.4" />
-        </svg>
-      );
-    case 'youtube':
-      return (
-        <svg viewBox="0 0 24 24" fill="none">
-          <rect
-            x="2.5"
-            y="5.5"
-            width="19"
-            height="13"
-            rx="3.5"
-            stroke="currentColor"
-            strokeWidth="1.9"
-          />
-          <path d="M10.3 9.3 15 12l-4.7 2.7z" fill="currentColor" />
-        </svg>
-      );
-    case 'rss':
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.9"
-          strokeLinecap="round"
-        >
-          <circle cx="6" cy="18" r="1.4" fill="currentColor" stroke="none" />
-          <path d="M5 11a8 8 0 0 1 8 8M5 5a14 14 0 0 1 14 14" />
-        </svg>
-      );
-    case 'x':
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.1"
-          strokeLinecap="round"
-        >
-          <path d="M5 5l14 14M19 5 5 19" />
-        </svg>
-      );
-    default:
-      return null;
-  }
+  const src = kind ? SOURCE_LOGOS[kind] : undefined;
+  if (!src) return null;
+  return (
+    <img
+      className="src-glyph"
+      src={src}
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      decoding="async"
+    />
+  );
 }
 
 /* ---- brand mark (Network Intel logo, theme-aware via CSS) ---- */

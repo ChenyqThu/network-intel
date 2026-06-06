@@ -110,8 +110,9 @@ def map_research_item(item: dict[str, Any], *, run_date: str) -> RawRow:
     """Map one structured research item -> RawRow (provenance ``G``).
 
     Pure (no network) — the live path's seam, unit-tested directly. ``source`` is
-    ``rss`` (the industry web-article channel; carries a glyph); the truthful
-    ``source_domain`` + ``url`` + ``date`` are what the citation line renders.
+    ``rss`` (the industry web-article channel) but the ``gemini`` glyph surfaces
+    the deep-research provenance; the truthful ``source_domain`` + ``url`` +
+    ``date`` are what the citation line renders.
     """
 
     url = (item.get("url") or "").strip()
@@ -128,7 +129,7 @@ def map_research_item(item: dict[str, Any], *, run_date: str) -> RawRow:
         "source_tier": tier_for_domain(domain),
         "subject": "industry",
         "category": "industry_trend",
-        "glyph": "rss",
+        "glyph": "gemini",
         "summary": (item.get("summary") or "").strip(),
     }
     return RawRow(source="rss", provenance="G", url=url, title=title, published=published, raw=raw)

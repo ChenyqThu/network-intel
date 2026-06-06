@@ -52,7 +52,7 @@ export type Impact =
 
 export type Sentiment = 'pos' | 'neg' | 'neu' | null;
 
-export type Glyph = 'unifi' | 'reddit' | 'youtube' | 'rss' | 'x';
+export type Glyph = 'unifi' | 'reddit' | 'youtube' | 'rss' | 'x' | 'gemini';
 
 export type SectionKey =
   | 'omada_self'
