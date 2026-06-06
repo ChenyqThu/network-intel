@@ -128,7 +128,8 @@ p { margin:0; text-wrap:pretty; }
   border-bottom:1px solid var(--border);
 }
 .brand { display:flex; align-items:center; gap:11px; cursor:pointer; user-select:none; }
-.brand-mark { width:30px; height:30px; flex:none; object-fit:contain; display:block; }
+.brand-mark { width:30px; height:30px; flex:none; background:url(/logo-light.png) center/contain no-repeat; }
+[data-theme="dark"] .brand-mark { background-image:url(/logo-dark.png); }
 .brand-name { font-weight:800; font-size:17px; letter-spacing:-.025em; line-height:1; }
 .brand-name .intel { color:var(--color-primary); }
 .brand-tag {
@@ -510,7 +511,7 @@ p { margin:0; text-wrap:pretty; }
 
 /* ===== back to top ===== */
 .back-to-top {
-  position:fixed; left:24px; bottom:24px; z-index:39;
+  position:fixed; right:24px; bottom:24px; z-index:39;
   width:42px; height:42px; display:flex; align-items:center; justify-content:center;
   color:#fff; background:var(--color-primary); border:none; border-radius:50%;
   cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,.18);

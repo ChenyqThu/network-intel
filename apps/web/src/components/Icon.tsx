@@ -162,7 +162,7 @@ export function SourceGlyph({ kind }: { kind?: string }) {
   }
 }
 
-/* ---- brand mark (Network Intel logo) ---- */
+/* ---- brand mark (Network Intel logo, theme-aware via CSS) ---- */
 export function BrandMark() {
-  return <img className="brand-mark" src="/logo.png" alt="Network Intel" />;
+  return <span className="brand-mark" role="img" aria-label="Network Intel" />;
 }
