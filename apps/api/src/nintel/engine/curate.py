@@ -453,9 +453,9 @@ def _normalize_llm_doc(
     if not doc.get("title"):
         if report_type == "weekly":
             period = report_id.replace("-weekly", "")  # e.g. 2026-W22
-            doc["title"] = f"Omada 竞品情报周报 · {period}"
+            doc["title"] = f"Omada 洞察情报周报 · {period}"
         else:
-            doc["title"] = f"Omada 竞品情报日报 · {doc['date']}"
+            doc["title"] = f"Omada 洞察情报日报 · {doc['date']}"
     _ensure_lead(doc)
     return doc
 

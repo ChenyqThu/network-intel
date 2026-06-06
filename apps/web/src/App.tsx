@@ -159,8 +159,7 @@ export default function App() {
           <div>
             <div className="foot-brand">Network Intel</div>
             <p className="foot-note">
-              内部竞品 &amp; 舆情情报 · 仅限 TP-Link 网络产品团队。每条结论可一键溯源验证——这是策展报告与普通信息聚合的本质区别。数据融合 · 多源：舆情流（Reddit
-              / YouTube）+ UNIFI_CHANNELS（一手官方）+ 行业 RSS + 深度研究。
+              内部洞察情报 · 仅限 TP-Link 网络产品团队。覆盖竞品动态、自身舆情与行业趋势，每条结论可一键溯源验证——这是策展报告与普通信息聚合的本质区别。
             </p>
           </div>
           <div className="foot-links">

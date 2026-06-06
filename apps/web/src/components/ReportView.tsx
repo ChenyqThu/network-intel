@@ -598,7 +598,7 @@ export function ReportView({
       )}
 
       <ReportHeader
-        kicker="Network Intel · 内部竞品情报"
+        kicker="Network Intel · 内部洞察情报"
         title={report.title || (report.type === 'weekly' ? periodLabel + ' · 周报' : report.date + ' · 日报')}
         meta={meta}
         actions={
