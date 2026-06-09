@@ -70,7 +70,9 @@ Daily sections = `omada_self` + `competitor`. Weekly adds `store` + `industry` +
 into curate as `context.background` (reference-only, never citeable). `gbrain.py` is the kos
 HTTP client (OAuth 2.1 client-credentials + MCP `search`). The `history` collection (past
 reported items) stays local (sqlite-vec; embedder via `NINTEL_EMBEDDER` = `hash`|`fastembed`).
-**kos READ works; kos WRITE (`put_page`) currently fails server-side** (page-not-found-after-write).
+kos READ and WRITE (`put_page`) both work. Published reports auto-push to kos
+(`NINTEL_KOS_PUBLISH=true`); the kos embed relay is flaky, so `index_report` retries
+3× with backoff. Backfill a missed push: `python -m nintel.pipeline kb push-report --report-id <id>`.
 
 ## Admin review console — `apps/api/src/nintel/api/admin.py`, `apps/web/src/pages/AdminPage.tsx`
 Route `/admin` (standalone; topbar has a 审核台 entry). Password = `NINTEL_ADMIN_PASSWORD`

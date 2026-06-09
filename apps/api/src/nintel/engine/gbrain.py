@@ -17,6 +17,7 @@ RAG background backend is ``gbrain``; tests monkeypatch :func:`_http_post`.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 import urllib.parse
@@ -245,6 +246,12 @@ def put_page(slug: str, content: str) -> Any:
     return _mcp_call("put_page", {"slug": slug, "content": content})
 
 
+# kos embeds pages via a flaky relay (intermittent TLS errors / timeouts), so a
+# put_page gets a few attempts with backoff before the failure surfaces.
+_PUSH_ATTEMPTS = 3
+_PUSH_BACKOFF_S = (5.0, 20.0)  # sleep before attempt 2, 3
+
+
 def index_report(doc: dict[str, Any]) -> Any:
     """Push one published report into kos as a page (slug = <prefix>/<report_id>).
 
@@ -253,4 +260,16 @@ def index_report(doc: dict[str, Any]) -> Any:
     fail with "page not found".
     """
     slug = f"{get_settings().kos_slug_prefix}/{doc['report_id']}".lower()
-    return put_page(slug, report_to_markdown(doc))
+    content = report_to_markdown(doc)
+    for attempt in range(1, _PUSH_ATTEMPTS + 1):
+        try:
+            return put_page(slug, content)
+        except Exception as exc:  # noqa: BLE001 - retry transient relay failures
+            if attempt == _PUSH_ATTEMPTS:
+                raise
+            delay = _PUSH_BACKOFF_S[min(attempt - 1, len(_PUSH_BACKOFF_S) - 1)]
+            logging.getLogger(__name__).warning(
+                "kos put_page failed for %s (attempt %d/%d): %s -- retrying in %.0fs",
+                slug, attempt, _PUSH_ATTEMPTS, exc, delay,
+            )
+            time.sleep(delay)

@@ -126,6 +126,36 @@ def test_index_report_calls_put_page(monkeypatch, kos_env):
     assert res["status"] == "created_or_updated"
 
 
+def test_index_report_retries_transient_failure(monkeypatch, kos_env):
+    calls = {"n": 0}
+
+    def flaky_call(name, arguments):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("kos put_page error: unable to verify the first certificate")
+        return {"status": "created_or_updated"}
+
+    monkeypatch.setattr(gbrain, "_mcp_call", flaky_call)
+    monkeypatch.setattr(gbrain.time, "sleep", lambda s: None)
+    res = gbrain.index_report(_sample_report())
+    assert calls["n"] == 2
+    assert res["status"] == "created_or_updated"
+
+
+def test_index_report_raises_after_exhausted_retries(monkeypatch, kos_env):
+    calls = {"n": 0}
+
+    def always_fail(name, arguments):
+        calls["n"] += 1
+        raise RuntimeError("kos put_page error: relay down")
+
+    monkeypatch.setattr(gbrain, "_mcp_call", always_fail)
+    monkeypatch.setattr(gbrain.time, "sleep", lambda s: None)
+    with pytest.raises(RuntimeError, match="relay down"):
+        gbrain.index_report(_sample_report())
+    assert calls["n"] == gbrain._PUSH_ATTEMPTS
+
+
 def test_index_report_lowercases_slug(monkeypatch, kos_env):
     captured: dict = {}
     monkeypatch.setattr(gbrain, "_mcp_call", lambda name, args: captured.update(args) or {"status": "ok"})
