@@ -277,6 +277,7 @@ def admin_edit(doc: dict[str, Any], instruction: str) -> dict[str, Any]:  # prag
         output_config={"effort": "high"},
         system=_cached_system(_prompt("admin_edit.md")),
         messages=[{"role": "user", "content": payload}],
+        timeout=900.0,  # weekly docs are large; default SDK timeout is too tight
     )
     text = next((b.text for b in resp.content if b.type == "text"), "{}")
     return _loads_report_json(text)

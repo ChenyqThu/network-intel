@@ -1,357 +1,261 @@
 /* ============================================================
    Admin review console (/admin) — password-gated.
-   Review pending reports · edit directly OR via LLM chat with a
-   live preview · publish / reject. Reuses the Dossier design
-   tokens + the public ReportView for the preview.
+   Review pending reports · edit directly OR via LLM diff-revisions
+   with a live preview · add real items from the intel pool ·
+   publish / reject · pull published reports back for re-review.
+   Components live in ./admin/; reuses Dossier tokens + ReportView.
    ============================================================ */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ReportView } from '../components/ReportView';
-import { Icon } from '../components/Icon';
-import type { Report, IntelItem, Subject, Impact } from '../types';
+import type { Report } from '../types';
 import {
   AdminAuthError,
-  getToken,
-  setToken,
-  login,
-  listPending,
   getPending,
-  savePending,
-  llmEdit,
-  publishPending,
-  rejectPending,
+  getPublishedReport,
+  getToken,
+  listPending,
+  listPublished,
+  setToken,
+  unpublishReport,
   type PendingEntry,
 } from '../api/admin';
+import { AdminHeader, type Sel } from './admin/AdminHeader';
+import { ConfirmProvider, useConfirm } from './admin/ConfirmDialog';
+import { EditorRail } from './admin/EditorRail';
+import { LoginGate } from './admin/LoginGate';
+import { ToastProvider, useToast } from './admin/Toast';
+import { useDocHistory } from './admin/useDocHistory';
 
-const SUBJECTS: Subject[] = ['omada_self', 'competitor', 'industry'];
-const IMPACTS: Record<Subject, Impact[]> = {
-  omada_self: ['needs_fix', 'feature_input', 'strength_confirm', 'unknown'],
-  competitor: ['threat', 'opportunity', 'neutral', 'unknown'],
-  industry: ['opportunity', 'neutral', 'unknown'],
-};
+const draftKey = (id: string) => `nintel_admin_draft_${id}`;
 
-type ChatMsg = { role: 'you' | 'ai'; text: string };
-
-/* ---------- login ---------- */
-function LoginGate({ onAuthed }: { onAuthed: () => void }) {
-  const [pw, setPw] = useState('');
-  const [err, setErr] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setErr(false);
-    const ok = await login(pw).catch(() => false);
-    setBusy(false);
-    if (ok) onAuthed();
-    else setErr(true);
-  };
-  return (
-    <div className="admin-login">
-      <form className="panel admin-login-card" onSubmit={submit}>
-        <div className="admin-login-title">
-          <Icon name="inbox" size={18} /> 审核台登录
-        </div>
-        <input
-          className="admin-input"
-          type="password"
-          placeholder="密码"
-          value={pw}
-          autoFocus
-          onChange={(e) => setPw(e.target.value)}
-        />
-        {err && <div className="admin-err">密码错误</div>}
-        <button className="admin-btn admin-btn-primary" disabled={busy || !pw}>
-          {busy ? '验证中…' : '进入'}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-/* ---------- direct-edit: a single item row ---------- */
-function ItemEditor({
-  item,
-  index,
-  total,
-  onChange,
-  onDelete,
-  onMove,
-}: {
-  item: IntelItem;
-  index: number;
-  total: number;
-  onChange: (patch: Partial<IntelItem>) => void;
-  onDelete: () => void;
-  onMove: (dir: -1 | 1) => void;
-}) {
-  const subj = (item.subject ?? 'competitor') as Subject;
-  return (
-    <div className="admin-item">
-      <div className="admin-item-top">
-        <span className="chip">{index + 1}</span>
-        <input
-          className="admin-input admin-item-title"
-          value={item.title ?? ''}
-          onChange={(e) => onChange({ title: e.target.value })}
-        />
-        <button className="admin-icon" title="上移" disabled={index === 0} onClick={() => onMove(-1)}>↑</button>
-        <button className="admin-icon" title="下移" disabled={index === total - 1} onClick={() => onMove(1)}>↓</button>
-        <button className="admin-icon admin-danger" title="删除" onClick={onDelete}>✕</button>
-      </div>
-      <div className="admin-item-row">
-        <select className="admin-select" value={subj} onChange={(e) => onChange({ subject: e.target.value as Subject, omada_impact: IMPACTS[e.target.value as Subject][0] })}>
-          {SUBJECTS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select className="admin-select" value={item.omada_impact ?? 'unknown'} onChange={(e) => onChange({ omada_impact: e.target.value as Impact })}>
-          {IMPACTS[subj].map((i) => <option key={i} value={i}>{i}</option>)}
-        </select>
-        <a className="admin-item-url" href={item.url} target="_blank" rel="noopener noreferrer">源 ↗</a>
-      </div>
-      <textarea className="admin-textarea" rows={2} placeholder="摘要 summary" value={item.summary ?? ''} onChange={(e) => onChange({ summary: e.target.value })} />
-      <textarea className="admin-textarea" rows={2} placeholder="研判 impact_note" value={item.impact_note ?? ''} onChange={(e) => onChange({ impact_note: e.target.value })} />
-    </div>
-  );
-}
-
-/* ---------- the editor rail ---------- */
-function EditorRail({
-  doc,
-  setDoc,
-  reportId,
-  onSaved,
-  onPublished,
-  onRejected,
-}: {
-  doc: Report;
-  setDoc: (d: Report) => void;
-  reportId: string;
-  onSaved: (d: Report) => void;
-  onPublished: () => void;
-  onRejected: () => void;
-}) {
-  const [tab, setTab] = useState<'ai' | 'edit'>('ai');
-  const [chat, setChat] = useState<ChatMsg[]>([]);
-  const [instr, setInstr] = useState('');
-  const [busy, setBusy] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-
-  const patchItem = (i: number, patch: Partial<IntelItem>) => {
-    const items = doc.items.map((it, j) => (j === i ? { ...it, ...patch } : it));
-    setDoc({ ...doc, items });
-  };
-  const deleteItem = (i: number) => setDoc({ ...doc, items: doc.items.filter((_, j) => j !== i) });
-  const moveItem = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= doc.items.length) return;
-    const items = [...doc.items];
-    [items[i], items[j]] = [items[j], items[i]];
-    setDoc({ ...doc, items });
-  };
-
-  const sendInstr = async () => {
-    const text = instr.trim();
-    if (!text) return;
-    setChat((c) => [...c, { role: 'you', text }]);
-    setInstr('');
-    setBusy('ai');
-    setStatus(null);
-    try {
-      const revised = await llmEdit(reportId, text);
-      setDoc(revised);
-      setChat((c) => [...c, { role: 'ai', text: '已按指令改稿，左侧为预览（未保存）。满意请点“保存草稿”。' }]);
-    } catch (e) {
-      setChat((c) => [...c, { role: 'ai', text: '改稿失败：' + (e as Error).message }]);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const doSave = async () => {
-    setBusy('save');
-    setStatus(null);
-    try {
-      const saved = await savePending(reportId, doc);
-      onSaved(saved);
-      setStatus('已保存草稿');
-    } catch (e) {
-      setStatus('保存失败：' + (e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const doPublish = async () => {
-    if (!window.confirm('发布后将对外可见，确认发布？')) return;
-    setBusy('publish');
-    setStatus(null);
-    try {
-      await savePending(reportId, doc); // persist latest edits first
-      await publishPending(reportId);
-      onPublished();
-    } catch (e) {
-      setStatus('发布失败：' + (e as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const doReject = async () => {
-    if (!window.confirm('退回将丢弃这份待审报告，确认？')) return;
-    setBusy('reject');
-    try {
-      await rejectPending(reportId);
-      onRejected();
-    } catch (e) {
-      setStatus('退回失败：' + (e as Error).message);
-      setBusy(null);
-    }
-  };
-
-  return (
-    <aside className="admin-rail panel">
-      <div className="admin-tabs">
-        <button className={'admin-tab' + (tab === 'ai' ? ' on' : '')} onClick={() => setTab('ai')}>AI 改稿</button>
-        <button className={'admin-tab' + (tab === 'edit' ? ' on' : '')} onClick={() => setTab('edit')}>直接编辑</button>
-      </div>
-
-      {tab === 'ai' && (
-        <div className="admin-chat">
-          <div className="admin-chat-log">
-            {chat.length === 0 && (
-              <div className="admin-hint">
-                用自然语言改稿，左侧实时预览。例如：<br />
-                “把导语改犀利点”、“删掉第 3 条”、“强调安全角度”、“按重要性重排竞品”。
-              </div>
-            )}
-            {chat.map((m, i) => (
-              <div key={i} className={'admin-msg ' + m.role}>{m.text}</div>
-            ))}
-            {busy === 'ai' && <div className="admin-msg ai">改稿中…</div>}
-          </div>
-          <div className="admin-chat-input">
-            <textarea
-              className="admin-textarea"
-              rows={2}
-              placeholder="输入改稿指令…"
-              value={instr}
-              disabled={busy === 'ai'}
-              onChange={(e) => setInstr(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sendInstr(); }}
-            />
-            <button className="admin-btn admin-btn-primary" disabled={busy === 'ai' || !instr.trim()} onClick={sendInstr}>
-              发送 ⌘↵
-            </button>
-          </div>
-        </div>
-      )}
-
-      {tab === 'edit' && (
-        <div className="admin-edit">
-          <label className="admin-label">导语 lead</label>
-          <textarea className="admin-textarea" rows={4} value={doc.lead?.text ?? ''} onChange={(e) => setDoc({ ...doc, lead: { ...doc.lead, text: e.target.value } })} />
-          <input className="admin-input" placeholder="加粗结论 strong" value={doc.lead?.strong ?? ''} onChange={(e) => setDoc({ ...doc, lead: { ...doc.lead, strong: e.target.value } })} />
-          {doc.strategy && (
-            <>
-              <label className="admin-label">策略标题 strategy.title</label>
-              <input className="admin-input" value={doc.strategy.title ?? ''} onChange={(e) => setDoc({ ...doc, strategy: { ...doc.strategy!, title: e.target.value } })} />
-            </>
-          )}
-          <label className="admin-label">条目（{doc.items.length}）· 可改写 / 删除 / 重排</label>
-          {doc.items.map((it, i) => (
-            <ItemEditor
-              key={it.id ?? i}
-              item={it}
-              index={i}
-              total={doc.items.length}
-              onChange={(patch) => patchItem(i, patch)}
-              onDelete={() => deleteItem(i)}
-              onMove={(dir) => moveItem(i, dir)}
-            />
-          ))}
-          <div className="admin-hint">新增条目需真实链接，请用 LLM 改稿或后续从源池添加（不凭空编造链接）。</div>
-        </div>
-      )}
-
-      <div className="admin-actions">
-        {status && <div className="admin-status">{status}</div>}
-        <button className="admin-btn" disabled={!!busy} onClick={doSave}>{busy === 'save' ? '保存中…' : '保存草稿'}</button>
-        <button className="admin-btn admin-btn-primary" disabled={!!busy} onClick={doPublish}>{busy === 'publish' ? '发布中…' : '发布'}</button>
-        <button className="admin-btn admin-danger" disabled={!!busy} onClick={doReject}>退回</button>
-      </div>
-    </aside>
-  );
-}
-
-/* ---------- page ---------- */
-export function AdminPage() {
+function AdminShell() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [authed, setAuthed] = useState(!!getToken());
   const [pending, setPending] = useState<PendingEntry[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [doc, setDoc] = useState<Report | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [published, setPublished] = useState<PendingEntry[]>([]);
+  const [sel, setSel] = useState<Sel | null>(null);
+  const [loadingDoc, setLoadingDoc] = useState(false);
+  const [pubDoc, setPubDoc] = useState<Report | null>(null);
+  const [busyUnpub, setBusyUnpub] = useState(false);
+  const hist = useDocHistory();
+  const loadSeq = useRef(0);
 
-  const refresh = async () => {
+  const onApiError = (e: unknown) => {
+    if (e instanceof AdminAuthError) setAuthed(false);
+    else toast('err', (e as Error).message);
+  };
+
+  const refresh = async (keep?: Sel | null) => {
     try {
-      const list = await listPending();
-      setPending(list);
-      if (list.length && !list.some((p) => p.id === selected)) {
-        setSelected(list[0].id);
-      } else if (!list.length) {
-        setSelected(null);
-        setDoc(null);
-      }
+      const [p, pub] = await Promise.all([listPending(), listPublished()]);
+      setPending(p);
+      setPublished(pub);
+      const want = keep === undefined ? sel : keep;
+      const stillThere =
+        want &&
+        (want.kind === 'pending'
+          ? p.some((x) => x.id === want.id)
+          : pub.some((x) => x.id === want.id));
+      if (stillThere) setSel(want);
+      else if (p.length) setSel({ kind: 'pending', id: p[0].id });
+      else if (pub.length) setSel({ kind: 'published', id: pub[0].id });
+      else setSel(null);
     } catch (e) {
-      if (e instanceof AdminAuthError) setAuthed(false);
-      else setErr((e as Error).message);
+      onApiError(e);
     }
   };
 
-  useEffect(() => { if (authed) refresh(); /* eslint-disable-next-line */ }, [authed]);
   useEffect(() => {
-    if (!selected) { setDoc(null); return; }
-    getPending(selected).then(setDoc).catch((e) => {
-      if (e instanceof AdminAuthError) setAuthed(false);
-      else setErr((e as Error).message);
-    });
-  }, [selected]);
+    if (authed) refresh(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authed]);
+
+  // load the selected report (pending → editable working copy, with local-draft
+  // recovery; published → read-only view)
+  useEffect(() => {
+    const seq = ++loadSeq.current;
+    setPubDoc(null);
+    if (!sel) {
+      hist.reset(null);
+      return;
+    }
+    setLoadingDoc(true);
+    (async () => {
+      try {
+        if (sel.kind === 'pending') {
+          const serverDoc = await getPending(sel.id);
+          if (seq !== loadSeq.current) return;
+          const raw = localStorage.getItem(draftKey(sel.id));
+          if (raw) {
+            try {
+              const { at, doc } = JSON.parse(raw) as { at: number; doc: Report };
+              const ok = await confirm(
+                `检测到 ${new Date(at).toLocaleString('zh-CN', { hour12: false })} 的未保存本地草稿，恢复它吗？（取消则丢弃草稿）`,
+                { confirmLabel: '恢复草稿' },
+              );
+              if (seq !== loadSeq.current) return;
+              if (ok) {
+                hist.reset(doc, { dirty: true });
+                return;
+              }
+            } catch {
+              /* corrupt draft — fall through to the server copy */
+            }
+            localStorage.removeItem(draftKey(sel.id));
+          }
+          hist.reset(serverDoc);
+        } else {
+          const doc = await getPublishedReport(sel.id);
+          if (seq !== loadSeq.current) return;
+          hist.reset(null);
+          setPubDoc(doc);
+        }
+      } catch (e) {
+        if (seq === loadSeq.current) onApiError(e);
+      } finally {
+        if (seq === loadSeq.current) setLoadingDoc(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel?.kind, sel?.id]);
+
+  // debounced local-draft autosave while dirty
+  useEffect(() => {
+    if (!hist.doc || !hist.dirty || sel?.kind !== 'pending') return;
+    const id = sel.id;
+    const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey(id), JSON.stringify({ at: Date.now(), doc: hist.doc }));
+      } catch {
+        /* storage full — autosave is best-effort */
+      }
+    }, 2000);
+    return () => window.clearTimeout(t);
+  }, [hist.doc, hist.dirty, sel]);
+
+  // warn before closing the tab with unsaved edits
+  useEffect(() => {
+    if (!hist.dirty) return;
+    const h = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [hist.dirty]);
+
+  const selectEntry = async (next: Sel) => {
+    if (sel && next.kind === sel.kind && next.id === sel.id) return;
+    if (hist.dirty) {
+      const ok = await confirm('当前报告有未保存的修改，切换会丢弃它们（本地草稿仍保留）。继续？', {
+        danger: true,
+        confirmLabel: '切换',
+      });
+      if (!ok) return;
+    }
+    setSel(next);
+  };
+
+  const doUnpublish = async () => {
+    if (!sel || sel.kind !== 'published') return;
+    const ok = await confirm(
+      '「撤回重审」会复制一份回待审队列；公开站继续显示当前版本，重新发布后才会覆盖。继续？',
+      { confirmLabel: '撤回重审' },
+    );
+    if (!ok) return;
+    setBusyUnpub(true);
+    try {
+      await unpublishReport(sel.id);
+      toast('ok', '已撤回到待审队列');
+      await refresh({ kind: 'pending', id: sel.id });
+    } catch (e) {
+      onApiError(e);
+    } finally {
+      setBusyUnpub(false);
+    }
+  };
 
   if (!authed) return <LoginGate onAuthed={() => setAuthed(true)} />;
 
+  const doc = hist.doc;
+  const viewDoc = sel?.kind === 'published' ? pubDoc : doc;
+
   return (
     <div className="admin-shell">
-      <header className="admin-top">
-        <div className="admin-brand"><Icon name="inbox" size={18} /> Network Intel · 审核台</div>
-        <select className="admin-select" value={selected ?? ''} onChange={(e) => setSelected(e.target.value)}>
-          {pending.length === 0 && <option value="">（无待审报告）</option>}
-          {pending.map((p) => (
-            <option key={p.id} value={p.id}>{p.id} · {p.item_count} 条</option>
-          ))}
-        </select>
-        <span className="admin-spacer" />
-        <button className="admin-icon" title="刷新" onClick={refresh}>↻</button>
-        <button className="admin-btn" onClick={() => { setToken(null); setAuthed(false); }}>退出</button>
-      </header>
+      <AdminHeader
+        pending={pending}
+        published={published}
+        sel={sel}
+        onSelect={selectEntry}
+        onRefresh={() => refresh()}
+        onLogout={() => {
+          setToken(null);
+          setAuthed(false);
+        }}
+      />
 
-      {err && <div className="admin-err">{err}</div>}
+      {loadingDoc && <div className="admin-empty">加载报告中…</div>}
+      {!loadingDoc && !viewDoc && (
+        <div className="admin-empty">没有报告。周报会在每周定时生成后进入待审队列。</div>
+      )}
 
-      {!doc && <div className="admin-empty">没有待审报告。周报会在每周定时生成后进入这里等待审核。</div>}
-
-      {doc && (
+      {!loadingDoc && viewDoc && (
         <div className="admin-body">
           <main className="admin-preview">
-            <div className="admin-preview-tag">实时预览</div>
-            <ReportView report={doc} type={doc.type} twoCol={false} chartStyle="minimal" archive={[]} onOpen={() => {}} />
+            <div className="admin-preview-tag">
+              {sel?.kind === 'published' ? '已发布 · 只读' : '实时预览'}
+            </div>
+            <ReportView
+              report={viewDoc}
+              type={viewDoc.type}
+              twoCol={false}
+              chartStyle="minimal"
+              archive={[]}
+              onOpen={() => {}}
+            />
           </main>
-          <EditorRail
-            doc={doc}
-            setDoc={setDoc}
-            reportId={selected!}
-            onSaved={(d) => setDoc(d)}
-            onPublished={() => { setDoc(null); refresh(); }}
-            onRejected={() => { setDoc(null); refresh(); }}
-          />
+
+          {sel?.kind === 'pending' && doc && (
+            <EditorRail
+              hist={hist}
+              reportId={sel.id}
+              onSaved={(saved) => {
+                hist.reset(saved);
+                localStorage.removeItem(draftKey(sel.id));
+              }}
+              onPublished={() => {
+                localStorage.removeItem(draftKey(sel.id));
+                hist.reset(null);
+                refresh(null);
+              }}
+              onRejected={() => {
+                localStorage.removeItem(draftKey(sel.id));
+                hist.reset(null);
+                refresh(null);
+              }}
+            />
+          )}
+
+          {sel?.kind === 'published' && (
+            <aside className="admin-rail panel admin-pub-rail">
+              <div className="admin-hint">
+                已发布报告为只读。「撤回重审」会复制一份回待审队列进入正常编辑流；公开站继续显示当前版本，重新发布后覆盖。
+              </div>
+              <button className="admin-btn admin-btn-primary" disabled={busyUnpub} onClick={doUnpublish}>
+                {busyUnpub ? '撤回中…' : '撤回重审'}
+              </button>
+            </aside>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+export function AdminPage() {
+  return (
+    <ToastProvider>
+      <ConfirmProvider>
+        <AdminShell />
+      </ConfirmProvider>
+    </ToastProvider>
   );
 }

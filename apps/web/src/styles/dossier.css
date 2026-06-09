@@ -608,13 +608,73 @@ p { margin:0; text-wrap:pretty; }
 .admin-login-card { display:flex; flex-direction:column; gap:12px; width:320px; padding:28px; }
 .admin-login-title { display:flex; align-items:center; gap:8px; font-weight:650; font-size:16px; }
 
+.admin-report-select { max-width:420px; text-overflow:ellipsis; }
+.admin-dirty { font:600 11px/1 var(--font-mono); color:var(--fix); background:var(--fix-tint); border:1px solid var(--fix); border-radius:var(--radius-pill); padding:3px 9px; }
+.admin-group-head { font:650 12px/1.6 var(--font-mono); color:var(--fg-secondary); margin-top:4px; }
+.admin-para { display:flex; flex-direction:column; gap:4px; }
+.admin-para-head { font-weight:600; }
+.admin-pub-rail { padding:16px; gap:12px; display:flex; flex-direction:column; }
+
+/* toasts */
+.admin-toasts { position:fixed; right:16px; bottom:16px; z-index:120; display:flex; flex-direction:column; gap:8px; max-width:380px; }
+.admin-toast { padding:10px 14px; border-radius:var(--radius-md); font-size:13px; line-height:1.5; cursor:pointer; box-shadow:0 6px 24px rgba(0,0,0,.14); border:1px solid var(--border-strong); background:var(--bg-surface); color:var(--fg-primary); animation:admin-toast-in .18s var(--ease); }
+.admin-toast.ok { border-color:var(--opp); background:var(--opp-tint); }
+.admin-toast.err { border-color:var(--threat); background:var(--threat-tint); }
+@keyframes admin-toast-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+
+/* confirm dialog */
+.admin-dialog-mask { position:fixed; inset:0; z-index:110; background:rgba(0,0,0,.34); display:grid; place-items:center; }
+.admin-dialog { width:min(420px, calc(100vw - 48px)); padding:20px; display:flex; flex-direction:column; gap:16px; }
+.admin-dialog-msg { font-size:14px; line-height:1.7; color:var(--fg-primary); }
+.admin-dialog-actions { display:flex; justify-content:flex-end; gap:8px; }
+.admin-btn-danger { background:var(--threat); border-color:var(--threat); color:#fff; }
+.admin-btn-danger:hover:not(:disabled) { opacity:.9; }
+
+/* AI revision diff */
+.admin-rev { border:1px solid var(--color-primary); border-radius:var(--radius-md); background:var(--bg-surface); overflow:hidden; }
+.admin-rev-head { font:650 12px/1.6 var(--font-mono); color:var(--color-primary); background:var(--primary-tint); padding:8px 12px; }
+.admin-rev-changes { max-height:340px; overflow-y:auto; display:flex; flex-direction:column; }
+.admin-rev-change { padding:9px 12px; border-top:1px dashed var(--border); }
+.admin-rev-change:first-child { border-top:none; }
+.admin-rev-label { font:650 11.5px/1.6 var(--font-mono); color:var(--fg-secondary); margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+.admin-rev-badge { font:600 10px/1 var(--font-mono); border-radius:var(--radius-pill); padding:2px 7px; }
+.admin-rev-badge.add { color:var(--opp); background:var(--opp-tint); border:1px solid var(--opp); }
+.admin-rev-badge.del { color:var(--threat); background:var(--threat-tint); border:1px solid var(--threat); }
+.admin-diff-text { font-size:13px; line-height:1.7; color:var(--fg-primary); white-space:pre-wrap; word-break:break-word; }
+.admin-diff-text ins { text-decoration:none; color:var(--opp); background:var(--opp-tint); border-radius:2px; }
+.admin-diff-text del { color:var(--threat); background:var(--threat-tint); border-radius:2px; }
+.admin-rev-actions { display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--border); background:var(--bg-subtle); }
+.admin-rev-history { border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-subtle); }
+.admin-rev-hist-row { display:flex; align-items:center; gap:8px; padding:7px 10px; border-top:1px dashed var(--border); }
+.admin-rev-hist-row:first-of-type { border-top:none; }
+.admin-rev-hist-txt { flex:1; font-size:12px; color:var(--fg-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* item-pool drawer */
+.admin-drawer-mask { position:fixed; inset:0; z-index:100; background:rgba(0,0,0,.28); }
+.admin-drawer { position:fixed; top:0; right:0; bottom:0; width:min(460px, 92vw); display:flex; flex-direction:column; gap:10px; padding:16px; border-radius:0; border-right:none; overflow:hidden; box-shadow:-12px 0 40px rgba(0,0,0,.18); }
+.admin-drawer-head { display:flex; align-items:center; justify-content:space-between; font-weight:650; }
+.admin-drawer-filters { display:flex; gap:6px; }
+.admin-drawer-filters .admin-input { flex:1; }
+.admin-drawer-target { display:flex; flex-direction:column; gap:4px; }
+.admin-drawer-target .admin-select { width:100%; }
+.admin-drawer-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+.admin-pool-row { display:flex; align-items:center; gap:10px; border:1px solid var(--border); border-radius:var(--radius-md); padding:9px 11px; background:var(--bg-subtle); }
+.admin-pool-row.exists { opacity:.55; }
+.admin-pool-main { flex:1; min-width:0; }
+.admin-pool-title { display:block; font-size:13px; font-weight:600; color:var(--fg-primary); text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.admin-pool-title:hover { color:var(--color-primary); }
+.admin-pool-meta { font:500 11.5px/1.6 var(--font-mono); color:var(--fg-tertiary); }
+
 @media (max-width:900px) {
   /* The fixed-height two-pane split is desktop-only; on small screens stack the
-     panes and let the page scroll naturally. */
+     panes and let the page scroll naturally — but keep the chat log and the
+     revision diff independently scrollable. */
   .admin-shell { height:auto; min-height:100vh; overflow:visible; }
   .admin-body { grid-template-columns:1fr; }
   .admin-preview { border-right:none; border-bottom:1px solid var(--border); overflow:visible; }
-  .admin-rail, .admin-chat, .admin-edit, .admin-chat-log { overflow:visible; min-height:0; }
+  .admin-rail, .admin-chat, .admin-edit { overflow:visible; min-height:0; }
+  .admin-chat-log { max-height:46vh; overflow-y:auto; }
+  .admin-report-select { max-width:46vw; }
 }
 
 /* ============================================================

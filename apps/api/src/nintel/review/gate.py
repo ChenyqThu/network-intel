@@ -179,6 +179,27 @@ def _upsert_db(doc: dict[str, Any]) -> None:
             row.payload = doc
 
 
+def unpublish(report_id: str) -> Path:
+    """Pull a published report back to ``pending/`` for re-review.
+
+    The published file and DB row stay in place — the public site keeps serving
+    the current version until the operator re-publishes (which overwrites via
+    the normal :func:`publish` upsert). Refuses to clobber an existing pending
+    draft for the same id.
+    """
+
+    pending, published = _ensure_dirs()
+    src = published / f"{report_id}.json"
+    if not src.exists():
+        raise FileNotFoundError(f"no published report: {report_id}")
+    out = pending / f"{report_id}.json"
+    if out.exists():
+        raise FileExistsError(f"pending draft already exists: {report_id}")
+    doc = json.loads(src.read_text(encoding="utf-8"))
+    _write_json(out, doc)
+    return out
+
+
 def list_pending() -> list[str]:
     pending, _ = _ensure_dirs()
     return sorted(p.stem for p in pending.glob("*.json"))

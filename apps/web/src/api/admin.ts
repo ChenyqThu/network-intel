@@ -3,7 +3,7 @@
    Password-gated (X-Admin-Token). The token IS the password
    (kept in sessionStorage). Talks to /api/admin/*.
    ============================================================ */
-import type { Report } from '../types';
+import type { IntelItem, Report, Subject } from '../types';
 import { API_BASE } from './client';
 
 const TOKEN_KEY = 'nintel_admin_token';
@@ -81,11 +81,12 @@ export const savePending = (id: string, doc: Report): Promise<Report> =>
     body: JSON.stringify(doc),
   });
 
-/** LLM revise by instruction → returns a finalized PREVIEW (not yet saved). */
-export const llmEdit = (id: string, instruction: string): Promise<Report> =>
+/** LLM revise by instruction → returns a finalized PREVIEW (not yet saved).
+    Sends the current working copy so the LLM builds on unsaved edits. */
+export const llmEdit = (id: string, instruction: string, doc: Report): Promise<Report> =>
   adminFetch<Report>(`/pending/${encodeURIComponent(id)}/llm-edit`, {
     method: 'POST',
-    body: JSON.stringify({ instruction }),
+    body: JSON.stringify({ instruction, doc }),
   });
 
 export const publishPending = (id: string): Promise<{ ok: boolean }> =>
@@ -97,3 +98,58 @@ export const rejectPending = (id: string): Promise<{ ok: boolean }> =>
   adminFetch<{ ok: boolean }>(`/pending/${encodeURIComponent(id)}/reject`, {
     method: 'POST',
   });
+
+/* ---------- published reports (read / pull back for re-review) ---------- */
+
+export const listPublished = (): Promise<PendingEntry[]> =>
+  adminFetch<{ published: PendingEntry[] }>('/published').then((r) => r.published);
+
+/** Read a published report for the admin preview — straight from the API
+    (no fixture fallback: the console must never show stand-in data). */
+export const getPublishedReport = async (id: string): Promise<Report> => {
+  const res = await fetch(`${API_BASE}/reports/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as Report;
+};
+
+/** Copy a published report back to pending for re-review (the live version
+    stays up until the operator re-publishes). */
+export const unpublishReport = (id: string): Promise<{ ok: boolean }> =>
+  adminFetch<{ ok: boolean }>(`/published/${encodeURIComponent(id)}/unpublish`, {
+    method: 'POST',
+  });
+
+/* ---------- intel-item pool (real ingested signals; NO-FABRICATION) ---------- */
+
+export interface PoolItem {
+  content_hash: string;
+  title: string;
+  url: string;
+  source: string;
+  source_tier: string;
+  subject: Subject;
+  date: string;
+  state: string;
+  report_count: number;
+  last_heat: number;
+}
+
+export const itemsPool = (params: {
+  q?: string;
+  days?: number;
+  subject?: Subject | '';
+}): Promise<PoolItem[]> => {
+  const qs = new URLSearchParams();
+  if (params.q) qs.set('q', params.q);
+  if (params.days) qs.set('days', String(params.days));
+  if (params.subject) qs.set('subject', params.subject);
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return adminFetch<{ items: PoolItem[] }>(`/items/pool${suffix}`).then((r) => r.items);
+};
+
+/** Turn a pool row into a contract-ready draft item (id/cite_id assigned on save). */
+export const itemDraft = (contentHash: string): Promise<IntelItem> =>
+  adminFetch<{ item: IntelItem }>('/items/draft', {
+    method: 'POST',
+    body: JSON.stringify({ content_hash: contentHash }),
+  }).then((r) => r.item);
