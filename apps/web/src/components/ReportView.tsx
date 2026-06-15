@@ -138,6 +138,7 @@ function StoreSection({ report, num }: { report: Report; num: string }) {
       <SectionHead icon="store" num={num} title="Store 动向" desc="价格 / 库存 / 上架变化" />
       <div className="sheet" style={{ padding: '8px 8px' }}>
         {rows.length ? (
+          <div className="tbl-scroll">
           <table className="tbl">
             <thead>
               <tr>
@@ -167,6 +168,7 @@ function StoreSection({ report, num }: { report: Report; num: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <div style={{ padding: 14 }}>
             <EmptyState text="本周 Store 无价格 / 库存 / 上架变动。" />

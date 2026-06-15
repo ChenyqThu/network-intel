@@ -61,6 +61,7 @@ export const ICONS: Record<string, string> = {
   sparkle: 'M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z',
   doc: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
   mail: 'M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 7l9 6 9-6',
+  menu: 'M3 6h18M3 12h18M3 18h18',
   // v2/v3 additions:
   wrench:
     'M14.7 6.3a4 4 0 0 0-5.2 5L3 17.8 6.2 21l6.5-6.5a4 4 0 0 0 5-5.2l-2.6 2.6-2.1-.4-.4-2.1z',

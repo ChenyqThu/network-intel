@@ -66,6 +66,7 @@ function BackToTop() {
 
 export default function App() {
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const sysDark = useSystemDark();
@@ -80,9 +81,10 @@ export default function App() {
     r.style.setProperty('--tw-primary', tweaks.primaryColor);
   }, [resolvedTheme, tweaks.density, tweaks.primaryColor]);
 
-  // Scroll to top on route change.
+  // Scroll to top + close the mobile menu on route change.
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    setMenuOpen(false);
   }, [location.pathname]);
 
   const toggleTheme = () =>
@@ -141,7 +143,54 @@ export default function App() {
         >
           <Icon name={resolvedTheme === 'dark' ? 'sun' : 'moon'} size={18} />
         </button>
+        <button
+          className="icon-btn nav-toggle"
+          onClick={() => setMenuOpen((v) => !v)}
+          title="菜单"
+          aria-label="菜单"
+          aria-expanded={menuOpen}
+        >
+          <Icon name={menuOpen ? 'x' : 'menu'} size={18} />
+        </button>
       </header>
+
+      {menuOpen && (
+        <div
+          className="nav-drawer-mask"
+          onClick={() => setMenuOpen(false)}
+          aria-hidden="true"
+        >
+          <nav className="nav-drawer" onClick={(e) => e.stopPropagation()}>
+            <NavLink to="/" end className={navClass} onClick={() => setMenuOpen(false)}>
+              最新报告
+            </NavLink>
+            <NavLink to="/daily" className={navClass} onClick={() => setMenuOpen(false)}>
+              日报
+            </NavLink>
+            <NavLink to="/weekly" className={navClass} onClick={() => setMenuOpen(false)}>
+              周报
+            </NavLink>
+            <NavLink to="/archive" className={navClass} onClick={() => setMenuOpen(false)}>
+              归档检索
+            </NavLink>
+            <NavLink to="/items" className={navClass} onClick={() => setMenuOpen(false)}>
+              全部条目
+            </NavLink>
+            <div className="nav-drawer-div" />
+            <a
+              role="link"
+              tabIndex={0}
+              className="nav-link"
+              onClick={() => {
+                setMenuOpen(false);
+                navigate('/admin');
+              }}
+            >
+              审核台
+            </a>
+          </nav>
+        </div>
+      )}
 
       <main className="page">
         <Routes>

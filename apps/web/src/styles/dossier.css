@@ -153,6 +153,18 @@ p { margin:0; text-wrap:pretty; }
 .icon-btn:hover { color:var(--fg-primary); border-color:var(--border-strong); }
 .icon-btn svg { width:17px; height:17px; }
 
+/* ===== mobile nav (hamburger drawer) — desktop hides the toggle ===== */
+.nav-toggle { display:none; }
+.nav-drawer-mask { position:fixed; inset:var(--nav-h) 0 0; z-index:39; background:var(--scrim); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+.nav-drawer {
+  position:absolute; top:0; left:0; right:0;
+  display:flex; flex-direction:column; gap:2px; padding:12px 14px 16px;
+  background:var(--bg-surface); border-bottom:1px solid var(--border);
+  box-shadow:var(--shadow-pop);
+}
+.nav-drawer .nav-link { font-size:15px; padding:12px 12px; border-radius:var(--radius-md); }
+.nav-drawer-div { height:1px; background:var(--border); margin:6px 0; }
+
 /* ===== containers ===== */
 .page { flex:1; }
 .wrap { max-width:var(--maxw); margin:0 auto; padding:0 28px; width:100%; }
@@ -345,7 +357,7 @@ p { margin:0; text-wrap:pretty; }
 .ref-h h2 { font-size:19px; font-weight:800; letter-spacing:-.02em; }
 .ref-h .sub { font-family:var(--font-mono); font-size:12px; color:var(--fg-tertiary); }
 .reflist { margin-top:16px; border-top:1px solid var(--border); }
-.refitem { display:grid; grid-template-columns:34px 1fr auto; gap:14px; align-items:start; padding:16px 6px; border-bottom:1px solid var(--border); scroll-margin-top:calc(var(--nav-h) + 16px); transition:background .2s; border-radius:var(--radius-sm); }
+.refitem { display:grid; grid-template-columns:34px minmax(0,1fr) auto; gap:14px; align-items:start; padding:16px 6px; border-bottom:1px solid var(--border); scroll-margin-top:calc(var(--nav-h) + 16px); transition:background .2s; border-radius:var(--radius-sm); }
 .refitem:hover { background:var(--bg-surface); }
 .refitem.flash { background:var(--primary-tint); }
 .refitem .rn { font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--color-primary); cursor:pointer; padding-top:1px; }
@@ -375,7 +387,7 @@ p { margin:0; text-wrap:pretty; }
 .strategy-period { font-family:var(--font-mono); font-size:11px; color:var(--fg-tertiary); margin-top:2px; }
 .opus-badge { font-family:var(--font-mono); font-size:10px; font-weight:700; letter-spacing:.04em; color:var(--color-primary); background:var(--primary-tint-strong); border:1px solid color-mix(in oklab,var(--color-primary) 28%,transparent); border-radius:var(--radius-pill); padding:5px 11px; white-space:nowrap; }
 .strategy-body { padding:22px 24px 24px; }
-.strat-para { display:grid; grid-template-columns:128px 1fr; gap:18px; padding:14px 0; border-bottom:1px solid color-mix(in oklab,var(--color-primary) 10%,transparent); }
+.strat-para { display:grid; grid-template-columns:128px minmax(0,1fr); gap:18px; padding:14px 0; border-bottom:1px solid color-mix(in oklab,var(--color-primary) 10%,transparent); }
 .strat-para:last-of-type { border-bottom:none; }
 .strat-label { font-family:var(--font-mono); font-size:11px; font-weight:700; color:var(--color-primary); letter-spacing:.02em; padding-top:3px; }
 .strat-text { font-size:15.5px; line-height:1.66; color:var(--fg-primary); }
@@ -384,10 +396,23 @@ p { margin:0; text-wrap:pretty; }
 .strat-ref { font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--color-primary); cursor:pointer; padding:2px 7px; border-radius:var(--radius-xs); background:var(--primary-tint-strong); }
 
 /* ===== home grid + aside ===== */
-.home-grid { display:grid; grid-template-columns:1fr; gap:0; }
-.home-grid.two { grid-template-columns:222px minmax(0,1fr); gap:56px; align-items:start; }
+/* Single column by default. The two-column (TOC + body) layout and the aside
+   only activate at >=1040px — at narrower widths the aside is display:none and,
+   were the two-col template still set, the body would auto-place into the empty
+   222px track and get crushed. Gating the template on the same breakpoint as the
+   aside keeps the body full-width on tablet/phone. */
+/* minmax(0,1fr) (not bare 1fr): a 1fr track's implicit `auto` minimum refuses to
+   shrink below its content min-content, so a wide descendant (e.g. the store
+   .tbl min-width, or a long token) would blow the column past the viewport on
+   mobile. minmax(0,…) lets the column shrink and the inner scroll containers do
+   their job. */
+.home-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:0; }
+.home-grid.two { grid-template-columns:minmax(0,1fr); }
 .aside { display:none; }
-@media (min-width:1040px){ .home-grid.two .aside { display:block; } }
+@media (min-width:1040px){
+  .home-grid.two { grid-template-columns:222px minmax(0,1fr); gap:56px; align-items:start; }
+  .home-grid.two .aside { display:block; }
+}
 .aside-sticky { position:sticky; top:calc(var(--nav-h) + 26px); }
 .aside-h { font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--fg-tertiary); margin-bottom:14px; }
 .toc { display:flex; flex-direction:column; gap:1px; margin-bottom:22px; }
@@ -406,7 +431,7 @@ p { margin:0; text-wrap:pretty; }
 .hist-row .ht { font-family:var(--font-mono); font-size:10px; font-weight:600; color:var(--fg-faint); }
 
 /* ===== weekly dashboard ===== */
-.kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin-top:18px; border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; background:var(--bg-surface); }
+.kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; margin-top:18px; border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; background:var(--bg-surface); }
 .kpi { padding:20px; border-left:1px solid var(--border); }
 .kpi:first-child { border-left:none; }
 .kpi .label { font-family:var(--font-mono); font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--fg-tertiary); margin-bottom:11px; display:flex; align-items:center; gap:6px; }
@@ -419,7 +444,7 @@ p { margin:0; text-wrap:pretty; }
 .panel-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
 .panel-head h3 { font-size:15px; font-weight:700; letter-spacing:-.01em; }
 .panel-head .sub { font-family:var(--font-mono); font-size:11.5px; color:var(--fg-tertiary); }
-.dash-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px; }
+.dash-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; margin-top:18px; }
 
 .legend { display:flex; flex-direction:column; gap:9px; }
 .legend .lr { display:flex; align-items:center; gap:9px; font-size:13px; }
@@ -450,6 +475,7 @@ p { margin:0; text-wrap:pretty; }
 .vs .bar.omada i { background:var(--color-primary); }
 .vs .bar.unifi i { background:var(--fg-tertiary); }
 
+.tbl-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .tbl { width:100%; border-collapse:collapse; font-size:13.5px; }
 .tbl th { text-align:left; font-family:var(--font-mono); font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--fg-tertiary); padding:0 14px 11px; border-bottom:1px solid var(--border); }
 .tbl td { padding:13px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
@@ -479,7 +505,7 @@ p { margin:0; text-wrap:pretty; }
 .chip-div { width:1px; height:20px; background:var(--border); margin:0 3px; }
 
 .arch-list { margin-top:14px; border-top:1px solid var(--border); }
-.arch-row { display:grid; grid-template-columns:92px 1fr auto; gap:22px; align-items:center; padding:20px 6px; border-bottom:1px solid var(--border); transition:.15s; cursor:pointer; scroll-margin-top:80px; }
+.arch-row { display:grid; grid-template-columns:92px minmax(0,1fr) auto; gap:22px; align-items:center; padding:20px 6px; border-bottom:1px solid var(--border); transition:.15s; cursor:pointer; scroll-margin-top:80px; }
 .arch-row:hover { background:var(--bg-surface); }
 .arch-date { font-family:var(--font-mono); font-size:12px; font-weight:600; color:var(--fg-tertiary); line-height:1.4; }
 .arch-date .yr { display:block; color:var(--fg-faint); }
@@ -535,22 +561,59 @@ p { margin:0; text-wrap:pretty; }
 
 /* responsive */
 @media (max-width:1000px){
-  .kpi-grid { grid-template-columns:repeat(2,1fr); }
+  .kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .kpi:nth-child(3){ border-left:none; }
   .kpi:nth-child(n+3){ border-top:1px solid var(--border); }
-  .dash-grid { grid-template-columns:1fr; }
+  .dash-grid { grid-template-columns:minmax(0,1fr); }
 }
 @media (max-width:760px){
+  /* topbar: inline nav -> hamburger drawer */
   .nav { display:none; }
   .nav-date { display:none; }
+  .nav-toggle { display:grid; }
+  .topbar { padding:0 16px; gap:12px; }
   .wrap { padding:0 18px; }
+
+  /* report header + sections breathe less */
+  .rhead { padding:30px 0 4px; }
+  .sec { margin-top:36px; }
+  .lead { margin-top:22px; padding-top:18px; }
+  .lead-text { font-size:17.5px; }
+
+  /* ledger entry stacks; rail goes horizontal */
   .entry { grid-template-columns:1fr; gap:0; padding:18px; }
   .entry-rail { flex-direction:row; gap:8px; padding:0 0 10px; }
   .entry-rail .rail-line { display:none; }
   .impact-pill { margin-left:auto; }
+
+  /* synthesized insight + strategy + dashboard panels */
+  .insight { padding:14px 15px; }
+  .strategy-head { padding:14px 16px; }
+  .strategy-body { padding:16px 16px 18px; }
+  .strat-para { grid-template-columns:1fr; gap:6px; }
+  .panel { padding:16px; }
+  .kpi { padding:16px; }
+
+  /* store table scrolls horizontally instead of being clipped by .sheet */
+  .tbl { min-width:520px; }
+
+  /* archive rows drop the stats column */
   .arch-row { grid-template-columns:64px 1fr; }
   .arch-stats { display:none; }
-  .strat-para { grid-template-columns:1fr; gap:6px; }
+
+  /* footer stacks; links drop the auto-margin */
+  .foot .wrap { gap:14px; }
+  .foot-links { margin-left:0; }
+
+  /* bigger tap targets for small interactive bits */
+  .sup { padding:2px 4px; }
+  .cite-jump, .strat-ref { padding:5px 10px; }
+}
+@media (max-width:480px){
+  .brand-tag { display:none; }
+  .kpi-grid { grid-template-columns:1fr; }
+  .kpi { border-left:none; border-top:1px solid var(--border); }
+  .kpi:first-child { border-top:none; }
 }
 
 /* ============================================================
