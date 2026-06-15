@@ -172,6 +172,7 @@ def window_decision(
     as_of: date,
     window: int,
     intake: int,
+    resurface_max: int | None = None,
 ) -> tuple[bool, str]:
     """Decide whether an item clears the intake window, and in which tier.
 
@@ -180,6 +181,8 @@ def window_decision(
     * **previously reported** items bypass the publish-date gate so a genuine
       turning point can re-surface them (``evaluate`` still decides if it does) —
       this is what un-breaks re-surface for content older than the fresh window;
+      on daily builds ``resurface_max`` (the weekly window) caps how far back
+      the bypass reaches, so re-surfacing can't break the daily window guarantee;
     * **fresh** items (publish date inside ``window``) take the normal path;
     * **slow-burn** (date in ``(window, intake]``) and **undated** items soft-pass
       into a low-priority tier instead of being silently dropped, leaving the
@@ -188,9 +191,12 @@ def window_decision(
     """
     if item.get("provenance") == "G":
         return True, TIER_FRESH
-    if is_reported:
-        return True, TIER_RESURFACE
     d = _parse_date(item.get("date"))
+    if is_reported:
+        if resurface_max is None or (d is not None and 0 <= (as_of - d).days < resurface_max):
+            return True, TIER_RESURFACE
+        # Past the re-surface age cap (or undated): fall through to the normal
+        # date gates instead of bypassing the report window.
     if d is None:
         return True, TIER_UNDATED
     delta = (as_of - d).days
@@ -259,6 +265,17 @@ def order_bucket(reason: str | None, item: dict, *, slowburn: bool = False) -> i
     return 3
 
 
+def _weekly_cadence_provenances() -> frozenset[str]:
+    """Provenances whose connector declares ``cadence == 'weekly'`` (e.g. the
+    industry RSS source, C). Mirrors the ingest cadence gate — these sources are
+    skipped on dailies, so they must not re-surface into a daily either."""
+    from ..connectors import all_connectors
+
+    return frozenset(
+        c.provenance for c in all_connectors() if getattr(c, "cadence", "both") == "weekly"
+    )
+
+
 def select_for_report(
     items: list[dict],
     *,
@@ -276,6 +293,12 @@ def select_for_report(
     window = cfg.window_days(report_type)
 
     intake = cfg.intake_days(report_type)
+
+    # Daily window guarantee: the re-surface bypass must not pull weekly-cadence
+    # sources (industry RSS, provenance C) into a daily, and a daily re-surface
+    # may reach back at most the weekly window. Weeklies keep the full bypass.
+    weekly_provs = _weekly_cadence_provenances() if report_type != "weekly" else frozenset()
+    resurface_max = cfg.weekly_window_days if report_type != "weekly" else None
 
     from ..store.db import session_scope
     from ..store.models import HeatSnapshotRow, IntelItemRow
@@ -303,7 +326,9 @@ def select_for_report(
         for it in items:
             ch = content_hash(it["source"], it["url"], it["title"])
             keep, tier = window_decision(
-                it, is_reported=ch in reported, as_of=as_of, window=window, intake=intake
+                it,
+                is_reported=ch in reported and it.get("provenance") not in weekly_provs,
+                as_of=as_of, window=window, intake=intake, resurface_max=resurface_max,
             )
             if keep:
                 tier_by_ch[ch] = tier

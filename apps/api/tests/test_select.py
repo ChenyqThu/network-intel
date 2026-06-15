@@ -191,6 +191,33 @@ def test_window_reported_bypasses_date_gate():
     assert keep and tier == TIER_RESURFACE
 
 
+def test_window_reported_daily_capped_at_weekly_window():
+    # Daily builds pass resurface_max (the weekly window): a previously-reported
+    # item older than the cap falls through to the normal date gates (dropped)
+    # instead of bypassing the daily window guarantee.
+    keep, _ = window_decision(
+        {"date": "2026-05-01"}, is_reported=True, as_of=AS_OF, window=3, intake=3,
+        resurface_max=7,
+    )
+    assert not keep
+    # Within the cap (5 days old > window 3 but < cap 7) it still re-surfaces.
+    keep, tier = window_decision(
+        {"date": "2026-06-05"}, is_reported=True, as_of=AS_OF, window=3, intake=3,
+        resurface_max=7,
+    )
+    assert keep and tier == TIER_RESURFACE
+
+
+def test_weekly_cadence_sources_cannot_resurface_into_daily():
+    # The daily build denies the re-surface bypass to weekly-cadence connectors
+    # (mirrors the ingest cadence gate); industry RSS (C) is weekly-cadence.
+    from nintel.engine.select import _weekly_cadence_provenances
+
+    provs = _weekly_cadence_provenances()
+    assert "C" in provs
+    assert "A" not in provs and "B" not in provs
+
+
 def test_window_undated_soft_passes():
     for bad in (None, "", "not-a-date"):
         keep, tier = window_decision(
