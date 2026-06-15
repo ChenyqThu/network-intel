@@ -5,3 +5,4 @@ dist-ssr
 .vite
 node_modules/.tmp
 coverage
+vite.config.ts.timestamp-*
