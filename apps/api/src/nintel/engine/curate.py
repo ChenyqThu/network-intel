@@ -334,7 +334,12 @@ def _clean_to_schema(doc: dict[str, Any]) -> dict[str, Any]:
     if isinstance(doc.get("sections"), list):
         doc["sections"] = [_prune(s, _ALLOWED_SECTION) for s in doc["sections"] if isinstance(s, dict)]
     if isinstance(doc.get("store"), list):
-        doc["store"] = [_prune(r, _ALLOWED_STORE) for r in doc["store"] if isinstance(r, dict)]
+        # StoreRow requires a real product name + stock. Drop rows the LLM emits
+        # without them rather than crashing the build on contract validation, and
+        # never fabricate the missing fields. Real store moves are attached
+        # separately from Supabase (pipeline._attach_store_moves).
+        rows = (_prune(r, _ALLOWED_STORE) for r in doc["store"] if isinstance(r, dict))
+        doc["store"] = [r for r in rows if r.get("product") and r.get("stock")]
     return doc
 
 
