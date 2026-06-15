@@ -16,6 +16,7 @@ the published store, falling back to the canonical contract seeds.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Response
@@ -30,6 +31,10 @@ from . import repository
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    if settings.admin_password == "Lucien2026":
+        logging.getLogger(__name__).warning(
+            "admin password is the default — set NINTEL_ADMIN_PASSWORD"
+        )
     app = FastAPI(
         title="Network Intel API",
         version=__version__,

@@ -16,8 +16,10 @@ written back to ``pending/`` or returned as a preview.
 
 from __future__ import annotations
 
+import hmac
 import json
 import re
+import time
 from typing import Any
 
 from fastapi import APIRouter, Body, Header, HTTPException
@@ -29,9 +31,27 @@ from ..review import gate
 _CITE = re.compile(r"\{\{cite:(\d+)\}\}")
 
 
+# Brute-force guard: module-level consecutive-failure counter (per-process).
+# Per-IP limiting is pointless here — all traffic arrives via the Cloudflare
+# tunnel, so every request shares the tunnel's local source address.
+_FAIL_MAX = 10
+_LOCKOUT_SECONDS = 30.0
+_fail_count = 0
+_locked_until = 0.0
+
+
 def _require_admin(token: str | None) -> None:
-    if not token or token != get_settings().admin_password:
+    global _fail_count, _locked_until
+    if time.monotonic() < _locked_until:
+        raise HTTPException(status_code=429, detail="too many failed auth attempts; retry later")
+    expected = get_settings().admin_password
+    if not token or not hmac.compare_digest(token.encode("utf-8"), expected.encode("utf-8")):
+        _fail_count += 1
+        if _fail_count >= _FAIL_MAX:
+            _fail_count = 0
+            _locked_until = time.monotonic() + _LOCKOUT_SECONDS
         raise HTTPException(status_code=401, detail="unauthorized")
+    _fail_count = 0
 
 
 def _pending_path(report_id: str):
