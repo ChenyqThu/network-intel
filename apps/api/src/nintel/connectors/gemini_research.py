@@ -196,20 +196,42 @@ def _theme_prompt(theme: str, since: date) -> str:
 # ---------------------------------------------------------------------------
 def _gemini_call(body: dict[str, Any], settings) -> dict[str, Any]:  # pragma: no cover - network
     import json
+    import time
+    import urllib.error
     import urllib.request
 
     endpoint = (
         f"https://generativelanguage.googleapis.com/v1beta/models/"
         f"{settings.gemini_model}:generateContent?key={settings.gemini_api_key}"
     )
-    req = urllib.request.Request(
-        endpoint,
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=180) as resp:  # noqa: S310 (trusted host)
-        return json.loads(resp.read().decode("utf-8", "replace"))
+    data = json.dumps(body).encode("utf-8")
+    # The grounded generateContent endpoint returns intermittent 503 ("high demand")
+    # and 429s; a single attempt drops the whole G source for the weekly. Retry
+    # transient errors with exponential backoff (mirrors the flaky kos relay), but
+    # surface hard errors (auth/bad-request) immediately rather than masking them.
+    _TRANSIENT = {429, 500, 502, 503, 504}
+    attempts = 5
+    last_exc: Exception | None = None
+    for i in range(attempts):
+        req = urllib.request.Request(
+            endpoint,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=180) as resp:  # noqa: S310 (trusted host)
+                return json.loads(resp.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as exc:
+            if exc.code not in _TRANSIENT or i == attempts - 1:
+                raise
+            last_exc = exc
+        except urllib.error.URLError as exc:  # transient network/timeout
+            if i == attempts - 1:
+                raise
+            last_exc = exc
+        time.sleep(min(60.0, 4.0 * (2**i)))  # 4s, 8s, 16s, 32s
+    raise last_exc  # unreachable, but keeps the type checker honest
 
 
 def _parts_text(cand: dict[str, Any]) -> str:  # pragma: no cover - network
