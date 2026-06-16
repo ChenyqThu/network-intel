@@ -18,6 +18,7 @@ import { ReportPage } from './pages/ReportPage';
 import { ArchivePage } from './pages/ArchivePage';
 import { AllItemsPage } from './pages/AllItemsPage';
 import { AdminPage } from './pages/AdminPage';
+import { UnsubscribePage } from './pages/UnsubscribePage';
 
 const TWEAK_DEFAULTS: Tweaks = {
   primaryColor: '#0C6151',
@@ -96,6 +97,11 @@ export default function App() {
   // Admin review console renders standalone (full-screen, no public shell).
   if (location.pathname.startsWith('/admin')) {
     return <AdminPage />;
+  }
+
+  // Unsubscribe landing page (linked from the email footer) — also standalone.
+  if (location.pathname.startsWith('/unsubscribe')) {
+    return <UnsubscribePage />;
   }
 
   return (

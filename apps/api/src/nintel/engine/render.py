@@ -17,6 +17,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup, escape
 
+from ..config import get_settings
 from ..contract import Report
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -138,6 +139,7 @@ def _ctx(report: Report) -> dict[str, Any]:
         "ref_index": ref_index,
         "references": report.references,
         "accent": "#0C6151",
+        "site_url": get_settings().site_url,
     }
 
 

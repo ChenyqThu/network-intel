@@ -138,6 +138,9 @@ class Settings:
     # Byline shown in the report subtitle funnel (NINTEL_REPORT_BYLINE).
     report_byline: str = "Jarvis 🐲"
 
+    # Public site base URL for email footer links (browser / archive / unsubscribe).
+    site_url: str = "https://daily.omada.ink"
+
     # --- Email delivery via davmail (SMTP send / IMAP draft; engine/mailer.py) ---
     # The IMAP/SMTP password is the davmail *cipher key* (NOT the O365 password); the
     # OAuth token lives in davmail's token.dat. davmail runs as the nintel-davmail pm2
@@ -255,6 +258,7 @@ def get_settings() -> Settings:
         kos_slug_prefix=os.getenv("NINTEL_KOS_SLUG_PREFIX", "network-intel"),
         admin_password=os.getenv("NINTEL_ADMIN_PASSWORD", "Lucien2026"),
         report_byline=os.getenv("NINTEL_REPORT_BYLINE", "Jarvis 🐲"),
+        site_url=os.getenv("NINTEL_SITE_URL", "https://daily.omada.ink").rstrip("/"),
         davmail_host=os.getenv("NINTEL_DAVMAIL_HOST", "127.0.0.1"),
         davmail_smtp_port=int(os.getenv("NINTEL_DAVMAIL_SMTP_PORT", "1025")),
         davmail_imap_port=int(os.getenv("NINTEL_DAVMAIL_IMAP_PORT", "1143")),

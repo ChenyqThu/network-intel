@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import Body, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from .. import __version__
@@ -100,6 +100,13 @@ def create_app() -> FastAPI:
         report = load_report(doc, schema_check=False)
         html = render_email(report)
         return Response(content=html, media_type="text/html")
+
+    # -- public: unsubscribe from report emails ---------------------------
+    @app.post("/api/unsubscribe")
+    def unsubscribe(email: str = Body(..., embed=True)) -> dict[str, Any]:
+        from ..engine import mail_config
+
+        return mail_config.unsubscribe(get_settings(), email)
 
     # -- admin review console (password-gated /api/admin/*) ---------------
     from .admin import create_admin_router

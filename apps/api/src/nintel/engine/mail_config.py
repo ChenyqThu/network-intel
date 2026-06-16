@@ -67,3 +67,20 @@ def resolve_recipients(settings: Settings) -> tuple[list[str], list[str]]:
     to = cfg["to"] or list(settings.mail_to)
     cc = cfg["cc"] or list(settings.mail_cc)
     return to, cc
+
+
+def unsubscribe(settings: Settings, email: str) -> dict[str, Any]:
+    """Remove ``email`` (case-insensitive) from the recipient list.
+
+    Operates on the *effective* list (saved config, or env fallback) and persists
+    the result to the file, so it works whether recipients came from the admin
+    page or the env. Returns ``{removed, remaining}``.
+    """
+    target = (email or "").strip().lower()
+    to, cc = resolve_recipients(settings)
+    new_to = [a for a in to if a.lower() != target]
+    new_cc = [a for a in cc if a.lower() != target]
+    removed = len(new_to) + len(new_cc) < len(to) + len(cc)
+    if removed:
+        save(settings, to=new_to, cc=new_cc)
+    return {"removed": removed, "remaining": len(new_to) + len(new_cc)}
