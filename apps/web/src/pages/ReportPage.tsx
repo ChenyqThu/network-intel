@@ -4,10 +4,10 @@
    /daily and /weekly bind ReportView to a fixed cadence.
    ============================================================ */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ReportView } from '../components/ReportView';
 import { useAsync } from '../lib/useAsync';
-import { fetchLatestReport, fetchArchive, usingFixtures } from '../api/client';
+import { fetchLatestReport, fetchReport, fetchArchive, usingFixtures } from '../api/client';
 import type { Tweaks } from '../components/TweaksPanel';
 
 export function ReportPage({
@@ -19,19 +19,20 @@ export function ReportPage({
   tweaks: Tweaks;
 }) {
   const navigate = useNavigate();
+  const { id: reportId } = useParams();
   const [homeType, setHomeType] = useState<'daily' | 'weekly'>('daily');
-  const type = mode === 'home' ? homeType : mode;
+  const cadence = mode === 'home' ? homeType : mode;
 
-  const report = useAsync(() => fetchLatestReport(type), [type]);
+  // /r/:id deep-links a specific report (e.g. the email "在浏览器中打开" link), so a
+  // link always opens that exact report, not the latest of its cadence.
+  const report = useAsync(
+    () => (reportId ? fetchReport(reportId) : fetchLatestReport(cadence)),
+    [reportId, cadence],
+  );
   const archive = useAsync(() => fetchArchive(), []);
+  const type = reportId ? (report.data?.type ?? cadence) : cadence;
 
-  const openReport = (id: string) => {
-    const a = archive.data?.find((x) => x.id === id);
-    if (a) {
-      // route to the matching cadence page so the latest of that type shows
-      navigate(a.type === 'weekly' ? '/weekly' : '/daily');
-    }
-  };
+  const openReport = (id: string) => navigate('/r/' + encodeURIComponent(id));
 
   if (report.loading) {
     return (
@@ -55,8 +56,8 @@ export function ReportPage({
     <ReportView
       report={report.data}
       type={type}
-      onSelectType={mode === 'home' ? setHomeType : undefined}
-      showToggle={mode === 'home'}
+      onSelectType={mode === 'home' && !reportId ? setHomeType : undefined}
+      showToggle={mode === 'home' && !reportId}
       twoCol={tweaks.homeLayout === 'two'}
       chartStyle={tweaks.chartStyle}
       archive={archive.data || []}

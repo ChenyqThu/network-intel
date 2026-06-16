@@ -203,6 +203,7 @@ export default function App() {
           <Route path="/" element={<ReportPage mode="home" tweaks={tweaks} />} />
           <Route path="/daily" element={<ReportPage mode="daily" tweaks={tweaks} />} />
           <Route path="/weekly" element={<ReportPage mode="weekly" tweaks={tweaks} />} />
+          <Route path="/r/:id" element={<ReportPage mode="daily" tweaks={tweaks} />} />
           <Route path="/archive" element={<ArchivePage />} />
           <Route path="/items" element={<AllItemsPage />} />
           <Route path="*" element={<ReportPage mode="home" tweaks={tweaks} />} />

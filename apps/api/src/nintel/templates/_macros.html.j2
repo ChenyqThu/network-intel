@@ -125,13 +125,12 @@
 {%- endmacro %}
 
 {% macro footer(report, site_url) -%}
-{% set cadence = 'weekly' if report.type == 'weekly' else 'daily' %}
 <tr><td class="px" style="padding:30px 34px 30px;">
   <div style="border-top:1px solid #E6E3DA;padding-top:18px;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:12px;line-height:1.75;color:#878B81;">
     <strong style="color:#191B18;font-weight:800;">Network Intel</strong> · 内部洞察情报 · 仅限 TP-Link 网络产品团队<br>
     数据融合：<span style="color:#54584F;">来源 B</span> UNIFI_CHANNELS Supabase（一手官方）+ <span style="color:#54584F;">来源 A</span> 个人情报流（Reddit / YouTube）+ <span style="color:#54584F;">来源 C</span> 行业 RSS<br>
     <span style="display:inline-block;margin-top:10px;">
-      <a href="{{ site_url }}/{{ cadence }}" class="hov" style="color:#0C6151;font-weight:600;text-decoration:none;">在浏览器中打开</a> &nbsp;·&nbsp;
+      <a href="{{ site_url }}/r/{{ report.report_id }}" class="hov" style="color:#0C6151;font-weight:600;text-decoration:none;">在浏览器中打开</a> &nbsp;·&nbsp;
       <a href="{{ site_url }}/archive" class="hov" style="color:#0C6151;font-weight:600;text-decoration:none;">查看历史归档</a> &nbsp;·&nbsp;
       <a href="{{ site_url }}/unsubscribe" class="hov" style="color:#0C6151;font-weight:600;text-decoration:none;">退订</a>
     </span>
