@@ -106,7 +106,11 @@ def create_app() -> FastAPI:
     def unsubscribe(email: str = Body(..., embed=True)) -> dict[str, Any]:
         from ..engine import mail_config
 
-        return mail_config.unsubscribe(get_settings(), email)
+        # Remove if present, but return a uniform response — never reveal whether
+        # the address was subscribed (avoids membership enumeration over a public
+        # endpoint).
+        mail_config.unsubscribe(get_settings(), email)
+        return {"ok": True}
 
     # -- admin review console (password-gated /api/admin/*) ---------------
     from .admin import create_admin_router

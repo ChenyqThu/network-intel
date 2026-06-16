@@ -60,3 +60,11 @@ def test_unsubscribe_materializes_env_fallback(settings):
     res = mail_config.unsubscribe(s, "drop@x.com")
     assert res["removed"] is True
     assert mail_config.load(s)["to"] == ["keep@x.com"]
+
+
+def test_unsubscribe_last_recipient_does_not_revive_env(settings):
+    # env-seeded recipient: unsubscribing the last one must stick — the now-empty
+    # saved file is authoritative, the env fallback must not re-add it.
+    s = dataclasses.replace(settings, mail_to=("only@x.com",))
+    mail_config.unsubscribe(s, "only@x.com")
+    assert mail_config.resolve_recipients(s) == ([], [])

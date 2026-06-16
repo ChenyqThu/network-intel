@@ -3,7 +3,7 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { API_BASE } from '../api/client';
 
-type State = 'idle' | 'busy' | 'done' | 'notfound' | 'error';
+type State = 'idle' | 'busy' | 'done' | 'error';
 
 export function UnsubscribePage() {
   const [email, setEmail] = useState('');
@@ -21,8 +21,9 @@ export function UnsubscribePage() {
         body: JSON.stringify({ email: v }),
       });
       if (!res.ok) throw new Error(String(res.status));
-      const data = (await res.json()) as { removed: boolean };
-      setState(data.removed ? 'done' : 'notfound');
+      // Uniform response: the server never reveals whether the address was
+      // subscribed, so always show the same confirmation.
+      setState('done');
     } catch {
       setState('error');
     }
@@ -37,15 +38,8 @@ export function UnsubscribePage() {
 
         {state === 'done' ? (
           <p style={msg}>
-            ✅ 已退订 <strong>{email.trim()}</strong>，不会再收到报告邮件。如需重新订阅，请联系报告维护者。
+            ✅ 若 <strong>{email.trim()}</strong> 在订阅列表中，已为你退订，不会再收到报告邮件。
           </p>
-        ) : state === 'notfound' ? (
-          <>
-            <p style={msg}>该邮箱不在订阅列表中（可能已退订，或拼写有误）。</p>
-            <button onClick={() => setState('idle')} style={btnGhost}>
-              重新输入
-            </button>
-          </>
         ) : (
           <form onSubmit={submit}>
             <p style={{ ...msg, color: '#54584F', fontSize: 14 }}>
@@ -109,17 +103,6 @@ const btnPrimary: CSSProperties = {
   color: '#fff',
   background: '#0C6151',
   border: 'none',
-  borderRadius: 8,
-  cursor: 'pointer',
-};
-const btnGhost: CSSProperties = {
-  marginTop: 14,
-  padding: '8px 14px',
-  fontSize: 13,
-  fontWeight: 600,
-  color: '#0C6151',
-  background: '#fff',
-  border: '1px solid #0C6151',
   borderRadius: 8,
   cursor: 'pointer',
 };

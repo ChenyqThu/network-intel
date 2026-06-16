@@ -62,11 +62,13 @@ def save(settings: Settings, *, to: list[str], cc: list[str]) -> dict[str, list[
 
 
 def resolve_recipients(settings: Settings) -> tuple[list[str], list[str]]:
-    """(to, cc) for delivery: the saved config, falling back to env when empty."""
-    cfg = load(settings)
-    to = cfg["to"] or list(settings.mail_to)
-    cc = cfg["cc"] or list(settings.mail_cc)
-    return to, cc
+    """(to, cc) for delivery. Once a config file exists it is authoritative — even
+    when empty — so an unsubscribe that empties the list is not silently undone by
+    the env fallback. The env vars only seed the list when no file exists yet."""
+    if _path(settings).exists():
+        cfg = load(settings)
+        return cfg["to"], cfg["cc"]
+    return list(settings.mail_to), list(settings.mail_cc)
 
 
 def unsubscribe(settings: Settings, email: str) -> dict[str, Any]:
