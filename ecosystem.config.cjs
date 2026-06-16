@@ -41,6 +41,17 @@ module.exports = {
       max_restarts: 10,
     },
     {
+      // davmail OAuth bridge: local SMTP 1025 / IMAP 1143 -> Exchange, in Docker.
+      // Powers `nintel.pipeline send` (email send / draft). Needs a one-time
+      // token.dat — see apps/api/infra/davmail/README.md. Bound to 127.0.0.1 only.
+      name: 'nintel-davmail',
+      cwd: path.join(ROOT, 'apps/api/infra/davmail'),
+      script: 'run-davmail.sh',
+      interpreter: 'none', // executable sh script (shebang)
+      autorestart: true,
+      max_restarts: 10,
+    },
+    {
       name: 'nintel-dev',
       cwd: path.join(ROOT, 'apps/web'),
       script: 'node_modules/.bin/vite',

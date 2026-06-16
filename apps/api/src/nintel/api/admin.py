@@ -326,4 +326,63 @@ def create_admin_router() -> APIRouter:
             )
         return {"ok": True, "pending_id": report_id, "path": str(out)}
 
+    @router.post("/published/{report_id}/email")
+    def email_report(
+        report_id: str,
+        mode: str = Body("draft", embed=True),
+        x_admin_token: str | None = Header(None),
+    ) -> dict[str, Any]:
+        """Email a published report via davmail — ``mode`` is ``draft`` | ``send``.
+
+        draft → IMAP APPEND into Drafts (review, then send by hand); send → SMTP to
+        ``NINTEL_MAIL_TO``. Mirrors the ``nintel send`` CLI (shared engine.delivery).
+        """
+        _require_admin(x_admin_token)
+        from ..contract import load_report
+        from ..engine import delivery
+
+        doc = gate.load_published(report_id)
+        if doc is None:
+            raise HTTPException(status_code=404, detail=f"no published report '{report_id}'")
+        try:
+            result = delivery.deliver_report(load_report(doc), mode=mode, settings=get_settings())
+        except delivery.MailConfigError as exc:
+            raise HTTPException(status_code=503, detail=str(exc))
+        except Exception as exc:  # noqa: BLE001 - davmail down / token expired -> 502
+            raise HTTPException(status_code=502, detail=f"email delivery failed: {exc}")
+        return {"ok": True, **result}
+
+    @router.get("/mail-config")
+    def get_mail_config(x_admin_token: str | None = Header(None)) -> dict[str, Any]:
+        """Current email recipients + delivery readiness for the settings UI."""
+        _require_admin(x_admin_token)
+        from ..engine import mail_config
+
+        s = get_settings()
+        cfg = mail_config.load(s)
+        return {
+            "to": cfg["to"],
+            "cc": cfg["cc"],
+            "env_to": list(s.mail_to),
+            "env_cc": list(s.mail_cc),
+            "from": s.davmail_user or s.mail_from,
+            "configured": bool((s.davmail_user or s.mail_from) and s.davmail_cipher_key),
+        }
+
+    @router.put("/mail-config")
+    def put_mail_config(
+        to: list[str] = Body(default=[], embed=True),
+        cc: list[str] = Body(default=[], embed=True),
+        x_admin_token: str | None = Header(None),
+    ) -> dict[str, Any]:
+        """Persist the recipient list (validated). Takes effect on the next send."""
+        _require_admin(x_admin_token)
+        from ..engine import mail_config
+
+        try:
+            cfg = mail_config.save(get_settings(), to=to, cc=cc)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return {"ok": True, **cfg}
+
     return router

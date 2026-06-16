@@ -138,6 +138,23 @@ class Settings:
     # Byline shown in the report subtitle funnel (NINTEL_REPORT_BYLINE).
     report_byline: str = "Jarvis 🐲"
 
+    # --- Email delivery via davmail (SMTP send / IMAP draft; engine/mailer.py) ---
+    # The IMAP/SMTP password is the davmail *cipher key* (NOT the O365 password); the
+    # OAuth token lives in davmail's token.dat. davmail runs as the nintel-davmail pm2
+    # app (Docker), bound to 127.0.0.1. mail_mode 'draft' stages into Drafts for human
+    # review (default); 'send' delivers straight to recipients.
+    davmail_host: str = "127.0.0.1"
+    davmail_smtp_port: int = 1025
+    davmail_imap_port: int = 1143
+    davmail_user: str | None = None
+    davmail_cipher_key: str | None = None
+    mail_from: str | None = None
+    mail_from_name: str = "Network Intel"
+    mail_to: tuple[str, ...] = ()
+    mail_cc: tuple[str, ...] = ()
+    mail_mode: str = "draft"  # draft | send
+    drafts_folder: str = "Drafts"
+
     # LLM (only used when llm_enabled)
     anthropic_api_key: str | None = None
     # Custom Anthropic-compatible endpoint (e.g. a claude-relay-service / crs
@@ -238,6 +255,17 @@ def get_settings() -> Settings:
         kos_slug_prefix=os.getenv("NINTEL_KOS_SLUG_PREFIX", "network-intel"),
         admin_password=os.getenv("NINTEL_ADMIN_PASSWORD", "Lucien2026"),
         report_byline=os.getenv("NINTEL_REPORT_BYLINE", "Jarvis 🐲"),
+        davmail_host=os.getenv("NINTEL_DAVMAIL_HOST", "127.0.0.1"),
+        davmail_smtp_port=int(os.getenv("NINTEL_DAVMAIL_SMTP_PORT", "1025")),
+        davmail_imap_port=int(os.getenv("NINTEL_DAVMAIL_IMAP_PORT", "1143")),
+        davmail_user=os.getenv("NINTEL_DAVMAIL_USER") or None,
+        davmail_cipher_key=os.getenv("NINTEL_DAVMAIL_CIPHER_KEY") or None,
+        mail_from=os.getenv("NINTEL_MAIL_FROM") or None,
+        mail_from_name=os.getenv("NINTEL_MAIL_FROM_NAME", "Network Intel"),
+        mail_to=tuple(s.strip() for s in os.getenv("NINTEL_MAIL_TO", "").split(",") if s.strip()),
+        mail_cc=tuple(s.strip() for s in os.getenv("NINTEL_MAIL_CC", "").split(",") if s.strip()),
+        mail_mode=os.getenv("NINTEL_MAIL_MODE", "draft").strip().lower(),
+        drafts_folder=os.getenv("NINTEL_DRAFTS_FOLDER", "Drafts"),
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL") or None,
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),

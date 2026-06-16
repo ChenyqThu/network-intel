@@ -274,6 +274,50 @@ def _cmd_render(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_send(args: argparse.Namespace) -> int:
+    """Email an already-published report via davmail — draft (default) or send.
+
+    Loads the published report (so the email == what's live on the site) rather
+    than rebuilding. ``--draft`` stages into Drafts for human review; ``--send``
+    delivers to the recipient list. Default mode comes from ``NINTEL_MAIL_MODE``.
+    """
+    from .api import repository
+    from .contract import load_report
+    from .engine import delivery
+
+    settings = get_settings()
+    mode = "draft" if args.draft else "send" if args.send else settings.mail_mode
+
+    doc = (
+        repository.get_report(args.report_id)
+        if args.report_id
+        else repository.latest_report(args.type)
+    )
+    if not doc:
+        which = args.report_id or f"latest {args.type}"
+        print(f"send: no published report found ({which})", file=sys.stderr)
+        return 1
+    report = load_report(doc)
+
+    try:
+        result = delivery.deliver_report(report, mode=mode, settings=settings)
+    except delivery.MailConfigError as e:
+        print(f"send: {e}", file=sys.stderr)
+        return 2
+    except Exception as e:  # noqa: BLE001 - CLI boundary: fail loud with a clean message
+        print(f"send: davmail delivery failed: {type(e).__name__}: {e}", file=sys.stderr)
+        return 1
+
+    if result["mode"] == "draft":
+        print(
+            f"draft staged in {result['folder']!r}: {result['report_id']} "
+            "— review in Outlook/OWA, then send"
+        )
+    else:
+        print(f"sent {result['report_id']} -> {', '.join(result['to'])} ({result['message_id']})")
+    return 0
+
+
 def _cmd_kb(args: argparse.Namespace) -> int:
     from .engine import rag
 
@@ -342,6 +386,18 @@ def main(argv: list[str] | None = None) -> int:
     p_render = sub.add_parser("render", help="render a report's email HTML to stdout")
     p_render.add_argument("--type", required=True, choices=["daily", "weekly"])
     p_render.set_defaults(func=_cmd_render)
+
+    p_send = sub.add_parser("send", help="email a published report via davmail (draft|send)")
+    p_send.add_argument("--type", required=True, choices=["daily", "weekly"])
+    p_send.add_argument("--report-id", default=None, help="specific report id (default: latest)")
+    mode_grp = p_send.add_mutually_exclusive_group()
+    mode_grp.add_argument(
+        "--draft", action="store_true", help="stage into Drafts for review (default mode)"
+    )
+    mode_grp.add_argument(
+        "--send", action="store_true", help="deliver to NINTEL_MAIL_TO now"
+    )
+    p_send.set_defaults(func=_cmd_send)
 
     p_kb = sub.add_parser("kb", help="manage the RAG knowledge base")
     p_kb.add_argument(

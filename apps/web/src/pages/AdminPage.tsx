@@ -10,6 +10,7 @@ import { ReportView } from '../components/ReportView';
 import type { Report } from '../types';
 import {
   AdminAuthError,
+  emailReport,
   getPending,
   getPublishedReport,
   getToken,
@@ -23,6 +24,7 @@ import { AdminHeader, type Sel } from './admin/AdminHeader';
 import { ConfirmProvider, useConfirm } from './admin/ConfirmDialog';
 import { EditorRail } from './admin/EditorRail';
 import { LoginGate } from './admin/LoginGate';
+import { MailSettings } from './admin/MailSettings';
 import { ToastProvider, useToast } from './admin/Toast';
 import { useDocHistory } from './admin/useDocHistory';
 
@@ -38,6 +40,8 @@ function AdminShell() {
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [pubDoc, setPubDoc] = useState<Report | null>(null);
   const [busyUnpub, setBusyUnpub] = useState(false);
+  const [busyMail, setBusyMail] = useState<'draft' | 'send' | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const hist = useDocHistory();
   const loadSeq = useRef(0);
 
@@ -173,6 +177,28 @@ function AdminShell() {
     }
   };
 
+  const doEmail = async (mode: 'draft' | 'send') => {
+    if (!sel || sel.kind !== 'published') return;
+    if (mode === 'send') {
+      const ok = await confirm(
+        '「发送」会立即把这份报告邮件发给配置的收件人（NINTEL_MAIL_TO）。继续？',
+        { danger: true, confirmLabel: '发送' },
+      );
+      if (!ok) return;
+    }
+    setBusyMail(mode);
+    try {
+      const r = await emailReport(sel.id, mode);
+      if (r.mode === 'draft')
+        toast('ok', `已存草稿到「${r.folder ?? 'Drafts'}」，去 Outlook/OWA 复核后发送`);
+      else toast('ok', `已发送给 ${(r.to ?? []).join('、') || '收件人'}`);
+    } catch (e) {
+      onApiError(e);
+    } finally {
+      setBusyMail(null);
+    }
+  };
+
   if (!authed) return <LoginGate onAuthed={() => setAuthed(true)} />;
 
   const doc = hist.doc;
@@ -190,6 +216,7 @@ function AdminShell() {
           setToken(null);
           setAuthed(false);
         }}
+        onSettings={() => setShowSettings(true)}
       />
 
       {loadingDoc && <div className="admin-empty">加载报告中…</div>}
@@ -242,10 +269,29 @@ function AdminShell() {
               <button className="admin-btn admin-btn-primary" disabled={busyUnpub} onClick={doUnpublish}>
                 {busyUnpub ? '撤回中…' : '撤回重审'}
               </button>
+              <div className="admin-hint">
+                邮件投递：「存草稿」放进你的草稿箱，复核后手动发；「发送」直接寄给配置的收件人（NINTEL_MAIL_TO）。
+              </div>
+              <button
+                className="admin-btn admin-btn-primary"
+                disabled={busyMail !== null}
+                onClick={() => doEmail('draft')}
+              >
+                {busyMail === 'draft' ? '存草稿中…' : '存草稿'}
+              </button>
+              <button
+                className="admin-btn"
+                disabled={busyMail !== null}
+                onClick={() => doEmail('send')}
+              >
+                {busyMail === 'send' ? '发送中…' : '发送'}
+              </button>
             </aside>
           )}
         </div>
       )}
+
+      {showSettings && <MailSettings onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

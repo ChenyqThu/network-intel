@@ -18,6 +18,7 @@ export function AdminHeader({
   onSelect,
   onRefresh,
   onLogout,
+  onSettings,
 }: {
   pending: PendingEntry[];
   published: PendingEntry[];
@@ -25,6 +26,7 @@ export function AdminHeader({
   onSelect: (sel: Sel) => void;
   onRefresh: () => void;
   onLogout: () => void;
+  onSettings: () => void;
 }) {
   return (
     <header className="admin-top">
@@ -57,6 +59,7 @@ export function AdminHeader({
       </select>
       <span className="admin-spacer" />
       <button className="admin-icon" title="刷新列表" onClick={onRefresh}>↻</button>
+      <button className="admin-btn" onClick={onSettings}>邮件设置</button>
       <button className="admin-btn" onClick={onLogout}>退出</button>
     </header>
   );

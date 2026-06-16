@@ -119,6 +119,41 @@ export const unpublishReport = (id: string): Promise<{ ok: boolean }> =>
     method: 'POST',
   });
 
+export interface EmailResult {
+  ok: boolean;
+  mode: 'draft' | 'send';
+  report_id: string;
+  folder?: string;
+  message_id?: string;
+  to?: string[];
+}
+
+/** Email a published report via davmail: 'draft' stages into Drafts, 'send' delivers now. */
+export const emailReport = (id: string, mode: 'draft' | 'send'): Promise<EmailResult> =>
+  adminFetch<EmailResult>(`/published/${encodeURIComponent(id)}/email`, {
+    method: 'POST',
+    body: JSON.stringify({ mode }),
+  });
+
+/* ---------- mail delivery config (recipient list) ---------- */
+
+export interface MailConfig {
+  to: string[];
+  cc: string[];
+  env_to: string[];
+  env_cc: string[];
+  from: string | null;
+  configured: boolean;
+}
+
+export const getMailConfig = (): Promise<MailConfig> => adminFetch<MailConfig>('/mail-config');
+
+export const saveMailConfig = (
+  to: string[],
+  cc: string[],
+): Promise<{ ok: boolean; to: string[]; cc: string[] }> =>
+  adminFetch('/mail-config', { method: 'PUT', body: JSON.stringify({ to, cc }) });
+
 /* ---------- intel-item pool (real ingested signals; NO-FABRICATION) ---------- */
 
 export interface PoolItem {

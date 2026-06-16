@@ -21,6 +21,9 @@ data/research/
 # Weekly merge/recovery snapshots (runtime output)
 data/recovery/
 
+# Editable mail recipient config (operator runtime state)
+data/mail_config.json
+
 # Review queues (keep the dirs, ignore contents)
 data/pending/*
 data/published/*

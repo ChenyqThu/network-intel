@@ -1,0 +1,8 @@
+# davmail runtime artifacts — never commit (jar bundle is large; token.dat is a secret)
+davmail.jar
+lib/
+davmail
+davmail-*.zip
+davmail-*/
+token.dat
+*.log
