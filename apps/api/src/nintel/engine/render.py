@@ -116,11 +116,22 @@ def _metrics_line(item_metrics: Any) -> str:
 def _ctx(report: Report) -> dict[str, Any]:
     item_by_id = {it.id: it for it in report.items}
     ref_index = _ref_index(report)
-    # Pre-resolve section -> ordered item objects.
+    insights_by_id = {ins.id: ins for ins in (report.insights or [])}
+    # Pre-resolve each section -> ordered item objects + its synthesized insights
+    # (each with its cite_refs resolved to References). When a section carries
+    # insight refs (v1.4 synthesis) the templates render those cards; otherwise
+    # they render per-item cards — same branch the web ReportView uses.
     sections = []
     for sec in report.sections:
         sec_items = [item_by_id[i] for i in sec.items if i in item_by_id]
-        sections.append({"meta": sec, "entries": sec_items})
+        sec_insights = []
+        for iid in sec.insights or []:
+            ins = insights_by_id.get(iid)
+            if ins is None:
+                continue
+            sources = [ref_index[n] for n in ins.cite_refs if n in ref_index]
+            sec_insights.append({"ins": ins, "sources": sources})
+        sections.append({"meta": sec, "entries": sec_items, "insights": sec_insights})
     return {
         "report": report,
         "sections": sections,

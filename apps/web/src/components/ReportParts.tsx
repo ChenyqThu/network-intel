@@ -247,14 +247,6 @@ export function References({ refs }: { refs: Reference[] }) {
                       defaultTierLabel(r.source_tier || 'community')}
                   </span>
                 </div>
-                <a
-                  className="rurl"
-                  href={r.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {r.url}
-                </a>
               </div>
               <a
                 className="rgo"

@@ -36,9 +36,11 @@
     <tr><td class="px" style="padding:22px 34px 16px;border-bottom:1px solid #EFEEE7;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
         <td style="vertical-align:middle;">
-          <span style="display:inline-block;width:11px;height:11px;border-radius:4px;background:#0C6151;vertical-align:-1px;"></span>
-          <span style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:18px;font-weight:800;letter-spacing:-.3px;color:#191B18;">&nbsp;Network <span style="color:#0C6151;">Intel</span></span>
-          <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:10px;font-weight:600;letter-spacing:.5px;color:#0C6151;background:#DCE9E4;padding:3px 7px;border-radius:4px;margin-left:8px;vertical-align:2px;">内部情报</span>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="vertical-align:middle;font-size:0;line-height:0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="11" height="11" style="width:11px;height:11px;background:#0C6151;border-radius:4px;font-size:0;line-height:0;">&nbsp;</td></tr></table></td>
+            <td style="vertical-align:middle;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:18px;font-weight:800;letter-spacing:-.3px;color:#191B18;white-space:nowrap;">&nbsp;Network <span style="color:#0C6151;">Intel</span></td>
+            <td style="vertical-align:middle;white-space:nowrap;"><span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:10px;font-weight:600;letter-spacing:.5px;color:#0C6151;background:#DCE9E4;padding:3px 7px;border-radius:4px;margin-left:8px;vertical-align:2px;">内部情报</span></td>
+          </tr></table>
         </td>
         <td align="right" style="vertical-align:middle;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#878B81;">
           日报 · <span style="color:#191B18;font-weight:600;">{{ report.date }}</span>
@@ -79,8 +81,13 @@
 
     <!-- sections -->
     {% for sec in sections %}
-    {% if sec.entries %}
-    {{ m.section_header(loop.index, sec.meta.title, sec.meta.desc, sec.entries|length, SECTION_TONE.get(sec.meta.key, '#191B18')) }}
+    {% set sn = loop.index %}
+    {% set tone = SECTION_TONE.get(sec.meta.key, '#191B18') %}
+    {% if sec.insights %}
+    {{ m.section_header(sn, sec.meta.title, sec.meta.desc, sec.insights|length, tone) }}
+    {% for entry in sec.insights %}{{ m.insight_card(entry, sn ~ '.' ~ loop.index, ref_index, tone) }}{% endfor %}
+    {% elif sec.entries %}
+    {{ m.section_header(sn, sec.meta.title, sec.meta.desc, sec.entries|length, tone) }}
     {% for item in sec.entries %}{{ m.intel_card(item) }}{% endfor %}
     {% endif %}
     {% endfor %}

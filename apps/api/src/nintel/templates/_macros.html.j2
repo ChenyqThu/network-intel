@@ -48,16 +48,57 @@
     {% endif %}
     {% set ml = item.metrics | metrics_line %}
     {% if ml %}<tr><td style="padding:12px 20px 14px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:#878B81;">{{ ml }}</td></tr>{% endif %}
-    {# citation footer #}
+    {# citation footer — 2-cell table (NOT float/inline-block-in-block-anchor) so
+       Outlook keeps cite·source·tier·date on one line and 查看原文 right-aligned. #}
     <tr><td style="padding:0;">
-      <a href="{{ item.url }}" class="hov" style="display:block;background:{{ '#E8F0ED' if off else '#F7F6F1' }};border-top:1px solid {{ '#CFE0D9' if off else '#E6E3DA' }};padding:12px 20px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;">
-        <span style="display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;background:{{ '#0C6151' if off else '#7C8079' }};color:#fff;border-radius:4px;font-size:11px;font-weight:700;vertical-align:2px;">{{ item.cite_id }}</span>
-        &nbsp;<span style="color:{{ '#0C6151' if off else '#54584F' }};font-weight:700;">{{ item.source_domain }}</span>
-        <span style="color:{{ '#0C6151' if off else '#878B81' }};background:{{ '#DCE9E4' if off else '#EFEEE7' }};font-size:10px;padding:2px 5px;border-radius:3px;">{{ item.tier_label or TIER_LABEL.get(item.source_tier, '') }}</span>
-        <span style="color:#C9C5BA;">·</span> <span style="color:#878B81;">{{ item.date }}</span>
-        <span style="float:right;color:#0C6151;font-weight:600;">查看原文 ↗</span>
-      </a>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:{{ '#E8F0ED' if off else '#F7F6F1' }};border-top:1px solid {{ '#CFE0D9' if off else '#E6E3DA' }};">
+        <tr>
+          <td style="padding:12px 20px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;line-height:18px;color:#878B81;">
+            <a href="{{ item.url }}" class="hov" style="color:inherit;text-decoration:none;">
+              <span style="display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;background:{{ '#0C6151' if off else '#7C8079' }};color:#fff;border-radius:4px;font-size:11px;font-weight:700;vertical-align:2px;">{{ item.cite_id }}</span>
+              <span style="color:{{ '#0C6151' if off else '#54584F' }};font-weight:700;">&nbsp;{{ item.source_domain }}</span>
+              <span style="color:{{ '#0C6151' if off else '#878B81' }};background:{{ '#DCE9E4' if off else '#EFEEE7' }};font-size:10px;padding:2px 5px;border-radius:3px;">{{ item.tier_label or TIER_LABEL.get(item.source_tier, '') }}</span>
+              <span style="color:#C9C5BA;">·</span> <span style="color:#878B81;">{{ item.date }}</span>
+            </a>
+          </td>
+          <td align="right" valign="middle" style="padding:12px 20px;white-space:nowrap;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;">
+            <a href="{{ item.url }}" class="hov" style="color:#0C6151;font-weight:600;text-decoration:none;">查看原文 ↗</a>
+          </td>
+        </tr>
+      </table>
     </td></tr>
+  </table>
+</td></tr>
+{%- endmacro %}
+
+{% macro insight_card(entry, num, ref_index, tone) -%}
+{# Synthesized thematic insight (v1.4): num + title, body with {{cite:N}} links,
+   💡takeaway, and a 来源 line resolving cite_refs to references. Mirrors the web
+   InsightEntry; all-table layout so Outlook keeps it intact. #}
+{% set ins = entry.ins %}
+<tr><td class="px" style="padding:14px 34px 0;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #E6E3DA;border-radius:10px;overflow:hidden;">
+    <tr><td style="padding:18px 20px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td width="38" style="vertical-align:top;padding-right:10px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;font-weight:700;color:{{ tone }};white-space:nowrap;line-height:1.5;">{{ num }}</td>
+        <td style="vertical-align:top;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:17px;font-weight:750;color:#191B18;letter-spacing:-.3px;line-height:1.4;">{{ ins.title }}</td>
+      </tr></table>
+    </td></tr>
+    <tr><td style="padding:12px 20px 0;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:14px;line-height:1.7;color:#34372F;">{{ ins.body | cite_links(ref_index) }}</td></tr>
+    {% if ins.takeaway %}
+    <tr><td style="padding:13px 20px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#E9F2EC;border-radius:7px;">
+        <tr><td style="padding:11px 14px;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;line-height:1.6;color:#1F5C3E;">
+          <strong style="color:#2E8259;">💡 </strong>{{ (ins.takeaway | replace('💡', '') | trim) | cite_links(ref_index) }}
+        </td></tr>
+      </table>
+    </td></tr>
+    {% endif %}
+    {% if entry.sources %}
+    <tr><td style="padding:13px 20px 16px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.8;color:#878B81;">
+      <span style="color:#A8AC9F;">来源&nbsp;&nbsp;</span>{% for r in entry.sources %}{% if not loop.first %}<span style="color:#C9C5BA;">&nbsp;·&nbsp;</span>{% endif %}<a href="{{ r.url }}" class="hov" style="color:#0C6151;font-weight:600;text-decoration:none;">[{{ r.cite_id }}]&nbsp;{{ r.source_domain }}</a>{% endfor %}
+    </td></tr>
+    {% endif %}
   </table>
 </td></tr>
 {%- endmacro %}
@@ -75,8 +116,7 @@
       {% for ref in references %}
       {% set off = ref.source_tier == 'official' %}
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:12px 0;{% if not loop.last %}border-bottom:1px solid #E6E3DA;{% endif %}font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;line-height:1.5;color:#54584F;">
-        <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;color:#0C6151;font-weight:700;">[{{ ref.cite_id }}]</span> <span style="color:#191B18;font-weight:600;">{{ ref.title }}</span> — <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;color:{{ '#0C6151' if off else '#54584F' }};">{{ ref.source_domain }}</span> · {{ ref.date }}{% if ref.tier_label %} · {{ ref.tier_label }}{% endif %}<br>
-        <a href="{{ ref.url }}" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:#0C6151;word-break:break-all;">{{ ref.url }}</a>
+        <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;color:#0C6151;font-weight:700;">[{{ ref.cite_id }}]</span> <a href="{{ ref.url }}" class="hov" style="color:#191B18;font-weight:600;text-decoration:none;">{{ ref.title }} <span style="color:#0C6151;">↗</span></a> — <span style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;color:{{ '#0C6151' if off else '#54584F' }};">{{ ref.source_domain }}</span> · {{ ref.date }}{% if ref.tier_label %} · {{ ref.tier_label }}{% endif %}
       </td></tr></table>
       {% endfor %}
     </td></tr>
