@@ -41,6 +41,8 @@ SECTION_TONE: dict[str, str] = {
     "store": "#8A6D1F",
     "industry": "#7C8079",
     "dashboard": "#0C6151",
+    "progress": "#1D6FA4",   # project-blue
+    "picks": "#6B4FA4",     # editorial-purple
 }
 
 # Tier label fallbacks by source_tier.
@@ -172,6 +174,59 @@ def render_email(report: Report) -> str:
     template_name = "weekly_email.html.j2" if report.type == "weekly" else "daily_email.html.j2"
     template = _env().get_template(template_name)
     return template.render(**_ctx(report))
+
+
+def render_email_filtered(report: Report, sections: set[str]) -> str:
+    """Render a personalised email containing only the requested *sections*.
+
+    The lead / header / footer are always included.  Section-level filtering is
+    done by building a lightweight shim report whose ``.sections`` list only
+    contains the subscriber’s chosen keys; items that belong exclusively to
+    excluded sections are also stripped so the References block stays clean.
+
+    Args:
+        report:   The full, published report (not mutated).
+        sections: Set of ``SectionKey`` strings the subscriber wants.
+                  An empty set → full report (no filtering).
+    """
+    if not sections:
+        return render_email(report)
+
+    # Build filtered section list; preserve original ordering.
+    filtered_sections = [s for s in report.sections if s.key in sections]
+
+    # Collect item ids referenced by the surviving sections.
+    kept_item_ids: set[str] = set()
+    kept_insight_ids: set[str] = set()
+    for sec in filtered_sections:
+        kept_item_ids.update(sec.items)
+        kept_insight_ids.update(sec.insights or [])
+
+    filtered_items = [it for it in report.items if it.id in kept_item_ids]
+    filtered_insights = [ins for ins in (report.insights or []) if ins.id in kept_insight_ids]
+
+    # Also keep references cited by kept items / insights.
+    cited_nums: set[int] = set()
+    _CITE_RE_LOCAL = re.compile(r"\{\{cite:(\d+)\}\}")
+    for it in filtered_items:
+        for field in (it.summary, it.analysis or ""):
+            cited_nums.update(int(m) for m in _CITE_RE_LOCAL.findall(field))
+    for ins in filtered_insights:
+        cited_nums.update(int(m) for m in _CITE_RE_LOCAL.findall(ins.body))
+    # Lead always included — keep its refs too.
+    cited_nums.update(report.lead.cite_refs)
+
+    filtered_refs = [r for r in (report.references or []) if r.n in cited_nums]
+
+    # Construct a shallow copy using model_copy (Pydantic v2); avoids re-validation.
+    slim = report.model_copy(update={
+        "sections": filtered_sections,
+        "items": filtered_items,
+        "insights": filtered_insights,
+        "references": filtered_refs,
+    })
+
+    return render_email(slim)
 
 
 def render_markdown(report: Report) -> str:

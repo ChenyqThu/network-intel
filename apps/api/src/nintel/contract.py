@@ -29,7 +29,7 @@ from .config import get_settings
 ReportType = Literal["daily", "weekly"]
 Subject = Literal["omada_self", "competitor", "industry"]
 SourceTier = Literal["official", "community"]
-SectionKey = Literal["omada_self", "competitor", "sentiment", "industry", "store", "dashboard"]
+SectionKey = Literal["omada_self", "competitor", "sentiment", "industry", "store", "dashboard", "progress", "picks"]
 Source = Literal[
     "omada_community", "unifi_community", "unifi_product", "unifi_store",
     "unifi_release", "blog", "reddit", "youtube", "rss", "x",

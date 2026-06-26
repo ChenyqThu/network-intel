@@ -11,7 +11,7 @@ from typing import Any
 
 from ..config import Settings
 from ..contract import Report
-from . import mail_config, mailer, render
+from . import mail_config, mailer, render, subscription
 
 
 class MailConfigError(ValueError):
@@ -69,3 +69,91 @@ def deliver_report(report: Report, *, mode: str, settings: Settings) -> dict[str
         recipients=[*to, *cc],
     )
     return {"mode": "send", "report_id": report.report_id, "message_id": mid, "to": to}
+
+
+def deliver_personalized(
+    report: Report,
+    *,
+    settings: Settings,
+    mode: str = "send",
+) -> dict[str, Any]:
+    """Send personalised per-section emails to every active subscriber.
+
+    Each subscriber receives only the sections they subscribed to
+    (empty ``sections`` list = all sections, i.e. the full report).
+    Falls back to ``deliver_report`` for the *global* To/Cc list (unchanged
+    behaviour) and then sends individual filtered emails on top.
+
+    Returns a result dict::
+
+        {
+            "report_id": "2026-W26-weekly",
+            "subscribers_sent": 3,
+            "subscribers_skipped": 0,
+            "results": [{"email": ..., "message_id": ...}, ...],
+        }
+    """
+    if mode not in ("draft", "send"):
+        raise MailConfigError(f"mode must be 'draft' or 'send', got {mode!r}")
+
+    user = settings.davmail_user or settings.mail_from
+    from_email = settings.mail_from or settings.davmail_user
+    if not user or not settings.davmail_cipher_key:
+        raise MailConfigError(
+            "set NINTEL_DAVMAIL_USER and NINTEL_DAVMAIL_CIPHER_KEY "
+            "(see apps/api/infra/davmail/README.md)"
+        )
+
+    cadence = "周报" if report.type == "weekly" else "日报"
+    results: list[dict[str, Any]] = []
+    skipped = 0
+
+    for sub in subscription.active_subscribers(settings):
+        email = sub["email"]
+        name = sub.get("name") or email
+        secs = subscription.sections_for(sub)  # empty = all
+
+        try:
+            html = render.render_email_filtered(report, secs)
+            text = render.render_markdown(report)  # plain-text always full
+            msg = mailer.build_report_message(
+                from_email=from_email,
+                from_name=settings.mail_from_name,
+                to=[email],
+                cc=None,
+                subject=f"Network Intel · {report.date} · {cadence}",
+                html=html,
+                text=text,
+            )
+            if mode == "draft":
+                folder = mailer.append_draft_via_davmail(
+                    msg,
+                    host=settings.davmail_host,
+                    port=settings.davmail_imap_port,
+                    user=user,
+                    password=settings.davmail_cipher_key,
+                    drafts_folder=settings.drafts_folder,
+                )
+                results.append({"email": email, "name": name, "folder": folder})
+            else:
+                mid = mailer.send_via_davmail(
+                    msg,
+                    host=settings.davmail_host,
+                    port=settings.davmail_smtp_port,
+                    user=user,
+                    password=settings.davmail_cipher_key,
+                    recipients=[email],
+                )
+                results.append({"email": email, "name": name, "message_id": mid,
+                                 "sections": sorted(secs) or "all"})
+        except Exception as exc:  # noqa: BLE001
+            skipped += 1
+            results.append({"email": email, "name": name, "error": str(exc)})
+
+    return {
+        "mode": mode,
+        "report_id": report.report_id,
+        "subscribers_sent": len(results) - skipped,
+        "subscribers_skipped": skipped,
+        "results": results,
+    }

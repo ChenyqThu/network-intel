@@ -21,7 +21,12 @@ ITEM_REQUIRED = {
     "id", "cite_id", "subject", "source", "source_domain", "source_tier",
     "title", "summary", "category", "omada_impact", "date", "url",
 }
-SECTION_KEYS = {"omada_self", "competitor", "sentiment", "industry", "store", "dashboard"}
+SECTION_KEYS = {
+    "omada_self", "competitor", "sentiment", "industry",
+    "store", "dashboard",
+    "progress",   # project-progress digest (feat/weekly-digest-subscriptions)
+    "picks",      # editorial picks (feat/weekly-digest-subscriptions)
+}
 
 
 def _schema() -> dict:

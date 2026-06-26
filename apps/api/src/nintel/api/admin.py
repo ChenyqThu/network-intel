@@ -385,4 +385,109 @@ def create_admin_router() -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc))
         return {"ok": True, **cfg}
 
+    # ------------------------------------------------------------------
+    # Subscriber management (per-section subscriptions)
+    # ------------------------------------------------------------------
+
+    @router.get("/subscribers")
+    def list_subscribers(x_admin_token: str | None = Header(None)) -> dict[str, Any]:
+        """List all subscribers with their section preferences."""
+        _require_admin(x_admin_token)
+        from ..engine import subscription
+
+        subs = subscription.load(get_settings())
+        return {"subscribers": subs, "total": len(subs),
+                "active": sum(1 for s in subs if s.get("active", True)),
+                "valid_sections": sorted(subscription.VALID_SECTION_KEYS)}
+
+    @router.post("/subscribers")
+    def add_subscriber(
+        email: str = Body(..., embed=True),
+        name: str = Body(default="", embed=True),
+        sections: list[str] = Body(default=[], embed=True),
+        x_admin_token: str | None = Header(None),
+    ) -> dict[str, Any]:
+        """Add or update a subscriber.  ``sections`` empty = all sections."""
+        _require_admin(x_admin_token)
+        from ..engine import subscription
+
+        try:
+            saved = subscription.upsert(
+                get_settings(),
+                {"email": email, "name": name, "sections": sections, "active": True},
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return {"ok": True, "subscriber": saved}
+
+    @router.delete("/subscribers/{email}")
+    def delete_subscriber(
+        email: str,
+        x_admin_token: str | None = Header(None),
+    ) -> dict[str, Any]:
+        """Remove a subscriber entirely."""
+        _require_admin(x_admin_token)
+        from ..engine import subscription
+
+        removed = subscription.remove(get_settings(), email)
+        if not removed:
+            raise HTTPException(status_code=404, detail=f"subscriber '{email}' not found")
+        return {"ok": True, "removed": email}
+
+    @router.patch("/subscribers/{email}")
+    def patch_subscriber(
+        email: str,
+        active: bool | None = Body(default=None, embed=True),
+        sections: list[str] | None = Body(default=None, embed=True),
+        name: str | None = Body(default=None, embed=True),
+        x_admin_token: str | None = Header(None),
+    ) -> dict[str, Any]:
+        """Partial update: toggle active, change sections, or rename."""
+        _require_admin(x_admin_token)
+        from ..engine import subscription
+
+        subs = subscription.load(get_settings())
+        target = next((s for s in subs if s["email"] == email.strip().lower()), None)
+        if target is None:
+            raise HTTPException(status_code=404, detail=f"subscriber '{email}' not found")
+        if active is not None:
+            target["active"] = active
+        if sections is not None:
+            target["sections"] = sections
+        if name is not None:
+            target["name"] = name.strip()
+        try:
+            subscription.save(get_settings(), subs)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return {"ok": True, "subscriber": target}
+
+    @router.post("/published/{report_id}/email-personalized")
+    def email_personalized(
+        report_id: str,
+        mode: str = Body("draft", embed=True),
+        x_admin_token: str | None = Header(None),
+    ) -> dict[str, Any]:
+        """Send per-subscriber personalised emails for a published report.
+
+        Each active subscriber receives only their subscribed sections.
+        ``mode`` is ``draft`` (IMAP Drafts) | ``send`` (SMTP direct).
+        """
+        _require_admin(x_admin_token)
+        from ..contract import load_report
+        from ..engine import delivery
+
+        doc = gate.load_published(report_id)
+        if doc is None:
+            raise HTTPException(status_code=404, detail=f"no published report '{report_id}'")
+        try:
+            result = delivery.deliver_personalized(
+                load_report(doc), mode=mode, settings=get_settings()
+            )
+        except delivery.MailConfigError as exc:
+            raise HTTPException(status_code=503, detail=str(exc))
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"email delivery failed: {exc}")
+        return {"ok": True, **result}
+
     return router
