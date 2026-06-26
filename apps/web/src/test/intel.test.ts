@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseCites,
+  parseInlineMd,
   citeNumbers,
   impactMeta,
   impactClass,
@@ -49,6 +50,46 @@ describe('cite superscript parser', () => {
       4, 5, 1,
     ]);
     expect(citeNumbers('none')).toEqual([]);
+  });
+});
+
+describe('inline markdown parser', () => {
+  it('parses **bold** (the curator emphasis seen in practice)', () => {
+    expect(parseInlineMd('风险在于**确认在野利用**，需警惕')).toEqual([
+      { kind: 'text', value: '风险在于' },
+      { kind: 'strong', value: '确认在野利用' },
+      { kind: 'text', value: '，需警惕' },
+    ]);
+  });
+
+  it('parses *italic* and `code`', () => {
+    expect(parseInlineMd('看 *重点* 与 `EAP670`')).toEqual([
+      { kind: 'text', value: '看 ' },
+      { kind: 'em', value: '重点' },
+      { kind: 'text', value: ' 与 ' },
+      { kind: 'code', value: 'EAP670' },
+    ]);
+  });
+
+  it('keeps bold spanning whole run and inner spaces', () => {
+    expect(parseInlineMd('**「免许可证」恰恰也是 Omada 的核心卖点**')).toEqual([
+      { kind: 'strong', value: '「免许可证」恰恰也是 Omada 的核心卖点' },
+    ]);
+  });
+
+  it('returns one text node when there is no markdown', () => {
+    expect(parseInlineMd('纯文本没有标记')).toEqual([
+      { kind: 'text', value: '纯文本没有标记' },
+    ]);
+  });
+
+  it('does not treat lone/flanked asterisks or snake_case as emphasis', () => {
+    expect(parseInlineMd('指标 a * b 增长')).toEqual([
+      { kind: 'text', value: '指标 a * b 增长' },
+    ]);
+    expect(parseInlineMd('文件 store_recent_items 命名')).toEqual([
+      { kind: 'text', value: '文件 store_recent_items 命名' },
+    ]);
   });
 });
 

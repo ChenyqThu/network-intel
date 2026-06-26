@@ -50,6 +50,43 @@ export function citeNumbers(text: string): number[] {
   return out;
 }
 
+/* ---------- inline markdown (bold / italic / code) ----------
+   The curator's prose occasionally emphasizes a key phrase with markdown
+   (in practice: **bold**). This runs on the plain-text runs *between*
+   {{cite:N}} tokens, so it never sees — and can never interfere with —
+   citation parsing (parseCites always splits cites out first). Inline
+   only: no block syntax (headings/lists/newlines), which the prose never
+   uses. `_`/`__` are intentionally NOT emphasis, to avoid false positives
+   on snake_case product/firmware identifiers. */
+
+export type MdNode =
+  | { kind: 'text'; value: string }
+  | { kind: 'strong'; value: string }
+  | { kind: 'em'; value: string }
+  | { kind: 'code'; value: string };
+
+// **bold** | `code` | *italic*  (bold matched before italic; the \S
+// flanking guards stop "a * b" or a lone asterisk from becoming emphasis).
+const MD_RE = /\*\*(\S(?:[^*]*?\S)?)\*\*|`([^`]+?)`|\*(\S(?:[^*\n]*?\S)?)\*/g;
+
+/** Split a plain text run into inline-markdown nodes (no {{cite}} inside). */
+export function parseInlineMd(text: string): MdNode[] {
+  const src = String(text);
+  const out: MdNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  MD_RE.lastIndex = 0;
+  while ((m = MD_RE.exec(src)) !== null) {
+    if (m.index > last) out.push({ kind: 'text', value: src.slice(last, m.index) });
+    if (m[1] !== undefined) out.push({ kind: 'strong', value: m[1] });
+    else if (m[2] !== undefined) out.push({ kind: 'code', value: m[2] });
+    else out.push({ kind: 'em', value: m[3] });
+    last = m.index + m[0].length;
+  }
+  if (last < src.length) out.push({ kind: 'text', value: src.slice(last) });
+  return out;
+}
+
 /* ---------- impact mapping (subject-aware, all 7 enums) ---------- */
 
 /** The css class suffix used by .impact-pill / .research / .entry-node. */

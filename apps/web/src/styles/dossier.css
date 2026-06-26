@@ -763,6 +763,11 @@ p { margin:0; text-wrap:pretty; }
 .insight-body { font-size:14px; line-height:1.85; color:var(--fg-secondary); }
 .insight-take { display:flex; gap:8px; margin-top:11px; padding:10px 12px; background:var(--primary-tint); border-left:3px solid var(--color-primary); border-radius:0 var(--radius-sm) var(--radius-sm) 0; font-size:13.5px; line-height:1.7; color:var(--fg-primary); }
 .insight-take .take-bulb { flex:none; }
+
+/* ----- inline markdown emphasis inside curated prose (CiteText) ----- */
+.lead-text strong, .insight-body strong, .insight-take strong, .strat-text strong { font-weight:680; color:var(--fg-primary); }
+.lead-text em, .insight-body em, .insight-take em, .strat-text em { font-style:italic; }
+.lead-text code, .insight-body code, .insight-take code, .strat-text code { font:0.92em var(--font-mono); background:var(--primary-tint-strong); padding:1px 5px; border-radius:var(--radius-xs); }
 .insight-src { display:flex; flex-wrap:wrap; align-items:center; gap:5px 6px; margin-top:12px; padding-top:11px; border-top:1px dashed var(--border); }
 .insight-src .src-label { font:600 10.5px/1.6 var(--font-mono); text-transform:uppercase; letter-spacing:.04em; color:var(--fg-tertiary); margin-right:2px; }
 .insight-src .src-sep { color:var(--border-strong); }

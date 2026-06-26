@@ -48,6 +48,27 @@ TIER_LABEL = {"official": "一手官方", "community": "社区来源"}
 
 _CITE_RE = re.compile(r"\{\{cite:(\d+)\}\}")
 
+# Inline markdown the curator occasionally emits in prose (in practice: **bold**).
+# Mirrors the web reader (web/src/lib/intel.ts parseInlineMd): bold before italic,
+# `_` is never emphasis (avoids snake_case false positives), \S flanking guards
+# stop "a * b" / lone asterisks from becoming emphasis.
+_MD_BOLD = re.compile(r"\*\*(\S(?:[^*]*?\S)?)\*\*")
+_MD_CODE = re.compile(r"`([^`]+?)`")
+_MD_ITALIC = re.compile(r"\*(\S(?:[^*\n]*?\S)?)\*")
+_MD_CODE_STYLE = (
+    "font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;"
+    "background:#EEF2EE;padding:1px 5px;border-radius:3px;"
+)
+
+
+def _inline_md(escaped: str) -> str:
+    """Render inline markdown (**bold** / `code` / *italic*) on already-escaped
+    text. Only ``*`` and backticks are touched, so it is safe on escaped HTML."""
+    s = _MD_BOLD.sub(r"<strong>\1</strong>", escaped)
+    s = _MD_CODE.sub(rf'<code style="{_MD_CODE_STYLE}">\1</code>', s)
+    s = _MD_ITALIC.sub(r"<em>\1</em>", s)
+    return s
+
 
 @lru_cache(maxsize=1)
 def _env() -> Environment:
@@ -82,14 +103,16 @@ def _cite_links_filter(text: str, ref_index: dict[int, Any]) -> Markup:
             f'font-size:11px;font-weight:700;vertical-align:5px;">{n}</a>'
         )
 
-    # text is already escaped by autoescape when passed; we escape pieces here.
+    # Cites split first (citation logic stays the sole first pass), then inline
+    # markdown renders on each escaped text run between them — mirrors the web
+    # reader so **bold** etc. don't show up raw in the email.
     parts: list[str] = []
     last = 0
     for m in _CITE_RE.finditer(text):
-        parts.append(str(escape(text[last : m.start()])))
+        parts.append(_inline_md(str(escape(text[last : m.start()]))))
         parts.append(repl(m))
         last = m.end()
-    parts.append(str(escape(text[last:])))
+    parts.append(_inline_md(str(escape(text[last:]))))
     return Markup("".join(parts))
 
 

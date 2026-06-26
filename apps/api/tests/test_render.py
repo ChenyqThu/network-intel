@@ -2,10 +2,26 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
-from nintel.engine.render import render_email, render_markdown
+from nintel.engine.render import _cite_links_filter, render_email, render_markdown
 from nintel.pipeline import build
+
+
+def test_cite_links_renders_inline_markdown_without_breaking_cites():
+    """Email prose: **bold** renders to <strong>, the {{cite:N}} stays a
+    clickable anchor, raw ** never leaks, and escaping/snake_case are safe."""
+    ref_index = {3: SimpleNamespace(url="https://example.com/x")}
+    out = str(_cite_links_filter("风险在于**确认在野利用**{{cite:3}}，需警惕", ref_index))
+    assert "<strong>确认在野利用</strong>" in out
+    assert 'href="https://example.com/x"' in out and ">3</a>" in out
+    assert "**" not in out
+    # escaping preserved; lone/flanked asterisks + snake_case are not emphasis.
+    assert str(_cite_links_filter("&<x> 与 store_recent_items 与 a * b", {})) == (
+        "&amp;&lt;x&gt; 与 store_recent_items 与 a * b"
+    )
 
 
 @pytest.mark.parametrize("rtype", ["daily", "weekly"])
