@@ -129,6 +129,12 @@ def build(
     if report_type == "weekly" and settings.connector_mode == "live" and "B" in settings.live_sources:
         report = _attach_store_moves(report, _as_of, settings)
 
+    # Weekly 高频痛点: cluster this week's UniFi-community complaints into named
+    # pain themes with real counts (Sonnet). Live + LLM only; best-effort, so an
+    # offline build or any hiccup leaves the empty pains from trend untouched.
+    if report_type == "weekly" and use_dynamic:
+        report = _attach_pains(report, _as_of, settings)
+
     # Provenance funnel for the subtitle (采集 -> 初筛 -> 精选 -> 策展). Live/LLM path
     # only — offline stays byte-identical to the seed (round-trip tests).
     if use_dynamic:
@@ -186,6 +192,30 @@ def _attach_funnel(report, raw_items, prefiltered, shortlisted, settings):
         funnel["shortlisted"] = len(shortlisted)
     doc["funnel"] = funnel
     return load_report(doc)
+
+
+def _attach_pains(report, as_of: date, settings):
+    """Populate the weekly dashboard's ``pains`` from clustered UniFi complaints.
+
+    Best-effort: a firehose/LLM hiccup (or no clear theme) leaves the dashboard's
+    empty ``pains`` in place rather than failing the weekly build.
+    """
+    try:
+        from .contract import load_report
+        from .engine import pains
+
+        rows = pains.build_pains(as_of, settings=settings)
+        doc = report.dump()
+        if rows and doc.get("dashboard") is not None:
+            doc["dashboard"]["pains"] = rows
+            return load_report(doc)
+    except Exception:  # noqa: BLE001 - pains block is a nice-to-have, never fatal
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "pains synthesis unavailable; weekly pains left empty", exc_info=True
+        )
+    return report
 
 
 def _attach_store_moves(report, as_of: date, settings):
