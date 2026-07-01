@@ -86,6 +86,27 @@ _SHORTLIST_SCHEMA: dict[str, Any] = {
     "required": ["selected"],
 }
 
+_PAINS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "themes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "name": {"type": "string"},
+                    # member item indices (into the input) belonging to this theme.
+                    "members": {"type": "array", "items": {"type": "integer"}},
+                },
+                "required": ["name", "members"],
+            },
+        },
+    },
+    "required": ["themes"],
+}
+
 
 @lru_cache(maxsize=1)
 def _client():  # pragma: no cover - requires network/SDK
@@ -243,6 +264,50 @@ def classify_brands(items: list[dict[str, Any]]) -> dict[int, str]:  # pragma: n
     text = next((b.text for b in resp.content if b.type == "text"), "{}")
     data = json.loads(text)
     return {int(v["i"]): v["brand"] for v in data.get("verdicts", []) if "i" in v and "brand" in v}
+
+
+def cluster_pains(items: list[dict[str, Any]]) -> list[dict[str, Any]]:  # pragma: no cover - network
+    """Sonnet: cluster real UniFi-community complaints into named pain themes.
+
+    Returns ``[{name, members:[int]}]`` where ``members`` are indices into
+    ``items``. The model only names + groups real items (never invents entries or
+    counts — the engine counts real members), so NO-FABRICATION holds.
+    """
+
+    settings = get_settings()
+    client = _client()
+    payload = json.dumps(
+        {
+            "items": [
+                {
+                    "i": i,
+                    "title": it.get("title"),
+                    "summary": (it.get("summary") or "")[:200],
+                    "sentiment": it.get("sentiment"),
+                }
+                for i, it in enumerate(items)
+            ]
+        },
+        ensure_ascii=False,
+    )
+    resp = client.messages.create(
+        model=settings.sonnet_model,
+        max_tokens=2048,
+        system=_cached_system(_prompt("pains.md")),
+        messages=[{"role": "user", "content": payload}],
+        output_config={"format": {"type": "json_schema", "schema": _PAINS_SCHEMA}},
+    )
+    text = next((b.text for b in resp.content if b.type == "text"), "{}")
+    data = json.loads(text)
+    themes = data.get("themes") if isinstance(data, dict) else None
+    out: list[dict[str, Any]] = []
+    if isinstance(themes, list):
+        for t in themes:
+            if not isinstance(t, dict) or not isinstance(t.get("name"), str):
+                continue
+            members = [m for m in (t.get("members") or []) if isinstance(m, int)]
+            out.append({"name": t["name"].strip(), "members": members})
+    return out
 
 
 def _loads_report_json(text: str) -> dict[str, Any]:
