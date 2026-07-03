@@ -1,4 +1,4 @@
-"""Optional Anthropic LLM stage (classify=Haiku, curate=Opus).
+"""Optional Anthropic LLM stage (classify=Haiku, curate=Sonnet 5).
 
 This module is **only** imported when ``NINTEL_LLM_ENABLED=true``. The default
 pipeline path never touches it, so a fresh checkout and the entire test-suite
@@ -13,8 +13,8 @@ Design (PRD FR-2.3, the "统一提示词"):
   written to cache once and read cheaply on every subsequent item/report. The
   per-item / per-report data goes in the user turn (after the cached prefix),
   which is the correct placement for the prefix-match cache.
-* Classify uses Haiku (``claude-haiku-4-5-20251001``); curate uses Opus
-  (``claude-opus-4-8``) with adaptive thinking + high effort.
+* Classify uses Haiku (``claude-haiku-4-5-20251001``); curate uses Sonnet 5
+  (``claude-sonnet-5``) with adaptive thinking + high effort.
 * Both stages request structured JSON via ``output_config.format`` so the
   result is schema-shaped and parseable.
 
@@ -220,6 +220,10 @@ def shortlist_items(
     resp = client.messages.create(
         model=settings.sonnet_model,
         max_tokens=2048,
+        # Sonnet 5 does extended thinking by default, which would consume the whole
+        # token budget before emitting the selection JSON (→ empty → silent prefilter
+        # fallback). 精选 is index-selection, not reasoning, so disable thinking.
+        thinking={"type": "disabled"},
         system=_cached_system(_prompt("shortlist.md")),
         messages=[{"role": "user", "content": user_payload}],
         output_config={"format": {"type": "json_schema", "schema": _SHORTLIST_SCHEMA}},
@@ -293,6 +297,10 @@ def cluster_pains(items: list[dict[str, Any]]) -> list[dict[str, Any]]:  # pragm
     resp = client.messages.create(
         model=settings.sonnet_model,
         max_tokens=2048,
+        # Sonnet 5 does extended thinking by default, which would consume the whole
+        # token budget before emitting the themes JSON (→ empty pains, no error).
+        # Clustering is structured extraction, not reasoning, so disable thinking.
+        thinking={"type": "disabled"},
         system=_cached_system(_prompt("pains.md")),
         messages=[{"role": "user", "content": payload}],
         output_config={"format": {"type": "json_schema", "schema": _PAINS_SCHEMA}},
@@ -382,7 +390,7 @@ def curate_report(
     report_id: str,
     recent_coverage: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:  # pragma: no cover - network
-    """Opus: select/order/impact/lead/strategy → a full report.json dict.
+    """Sonnet 5: select/order/impact/lead/strategy → a full report.json dict.
 
     Returns a dict that must pass ``validate_against_schema``. The caller
     (curate.curate) loads + validates it; on any drift the deterministic
@@ -431,7 +439,7 @@ def curate_report(
     # max_tokens covers adaptive *thinking* + the full report JSON. A weekly
     # (strategy + dashboard + 4-8 insights + items, all Chinese) was truncating at
     # 16k — an incomplete JSON body _loads_json can't parse, which crashes the
-    # build with no fallback. Pin to the model's max (64k for claude-opus-4-8,
+    # build with no fallback. Pin to the model's max (64k for claude-sonnet-5,
     # probe-verified accepted) so output room is never the failure mode again; a
     # real report only uses ~10-15k, so this is purely a ceiling.
     # An explicit per-request timeout is REQUIRED at this size: the SDK otherwise
@@ -440,7 +448,7 @@ def curate_report(
     # call past 600s). Passing timeout bypasses that guard and keeps the same
     # non-streaming path that works at smaller sizes.
     resp = client.messages.create(
-        model=settings.opus_model,
+        model=settings.sonnet_model,
         max_tokens=64000,
         thinking={"type": "adaptive"},
         output_config={"effort": "high"},

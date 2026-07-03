@@ -1,4 +1,4 @@
-"""Curate stage (Opus tier).
+"""Curate stage (Sonnet 5 tier).
 
 This is the strategic stage (PRD FR-2.3): from the pool of classified items it
 
@@ -14,7 +14,7 @@ This is the strategic stage (PRD FR-2.3): from the pool of classified items it
 
 It then hands ``stats``/``dashboard`` to :mod:`nintel.engine.trend`.
 
-LLM-optional: ``NINTEL_LLM_ENABLED=true`` routes the synthesis through Opus via
+LLM-optional: ``NINTEL_LLM_ENABLED=true`` routes the synthesis through Sonnet 5 via
 :mod:`nintel.engine.llm` (with prompt caching). The default deterministic path
 reproduces the human-verified seed report **exactly**, driven by the curated
 seed as the curation manifest — so output is offline and lossless.

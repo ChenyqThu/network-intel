@@ -164,7 +164,7 @@ class Settings:
     # gateway). When set, the SDK is pointed here instead of api.anthropic.com.
     anthropic_base_url: str | None = None
     haiku_model: str = "claude-haiku-4-5-20251001"
-    sonnet_model: str = "claude-sonnet-4-6"
+    sonnet_model: str = "claude-sonnet-5"
     opus_model: str = "claude-opus-4-8"
 
     # Gemini deep-research connector (source G). Only used when source G runs
@@ -273,7 +273,7 @@ def get_settings() -> Settings:
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY"),
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL") or None,
         haiku_model=os.getenv("NINTEL_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
-        sonnet_model=os.getenv("NINTEL_SONNET_MODEL", "claude-sonnet-4-6"),
+        sonnet_model=os.getenv("NINTEL_SONNET_MODEL", "claude-sonnet-5"),
         opus_model=os.getenv("NINTEL_OPUS_MODEL", "claude-opus-4-8"),
         gemini_api_key=os.getenv("NINTEL_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY") or None,
         gemini_model=os.getenv("NINTEL_GEMINI_MODEL", "gemini-3.5-flash"),
