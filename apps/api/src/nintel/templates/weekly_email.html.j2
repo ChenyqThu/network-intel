@@ -129,31 +129,134 @@
       {% endif %}
     {% elif sec.meta.key == 'dashboard' %}
       {% if report.dashboard %}
-      {{ m.section_header(loop.index, sec.meta.title, sec.meta.desc, none, SECTION_TONE.get('dashboard')) }}
+      {% set db = report.dashboard %}
+      {% set vs = db.vs %}
+      {% set vs_ok = vs and ((vs.omada or 0) > 0 or (vs.unifi or 0) > 0) %}
+      {% set pains = db.pains or [] %}
+      {% set sources = db.sources or [] %}
+      {% set topheat = db.topHeat or [] %}
+
+      {# ===== 口碑与痛点分析 (mirrors web DashboardSection sentiment panels) ===== #}
+      {{ m.section_header(sn, '口碑与痛点分析', '情感趋势 / 高频痛点 / Omada vs UniFi', none, SECTION_TONE.get('sentiment')) }}
+
+      {# 口碑指数 · 本周: current-week index + real 环比 (from sentimentTrend) + bars #}
+      {% if vs_ok %}
+      <tr><td class="px" style="padding:16px 34px 0;">
+        <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:16px 18px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;font-weight:800;color:#191B18;">口碑指数 · 本周</td>
+            <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#878B81;">Omada vs UniFi · 正面口碑</td>
+          </tr></table>
+          {% set od = vs_delta.omada if vs_delta else none %}
+          <div style="margin-top:14px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#54584F;">Omada</td>
+              <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:15px;font-weight:800;color:#0C6151;">{{ vs.omada }}{% if od is not none %} <span style="font-size:11px;font-weight:700;color:{{ '#2E8259' if od > 0 else '#B23B4B' if od < 0 else '#878B81' }};">{{ '▲' if od > 0 else '▼' if od < 0 else '' }}{{ '+' if od > 0 else '' }}{{ od }} 环比</span>{% endif %}</td>
+            </tr></table>
+            {{ m.bar(vs.omada, '#0C6151') }}
+          </div>
+          {% set ud = vs_delta.unifi if vs_delta else none %}
+          <div style="margin-top:13px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#54584F;">UniFi</td>
+              <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:15px;font-weight:800;color:#B23B4B;">{{ vs.unifi }}{% if ud is not none %} <span style="font-size:11px;font-weight:700;color:{{ '#2E8259' if ud > 0 else '#B23B4B' if ud < 0 else '#878B81' }};">{{ '▲' if ud > 0 else '▼' if ud < 0 else '' }}{{ '+' if ud > 0 else '' }}{{ ud }} 环比</span>{% endif %}</td>
+            </tr></table>
+            {{ m.bar(vs.unifi, '#B23B4B') }}
+          </div>
+        </div>
+      </td></tr>
+      {% else %}
+      {{ m.empty_note('环比口碑对比需上周数据，正在积累中') }}
+      {% endif %}
+
+      {# 高频痛点 Top 5 (UniFi 社区 · 本周) #}
+      <tr><td class="px" style="padding:20px 34px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;font-weight:800;color:#191B18;">高频痛点 Top 5</td>
+          <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#878B81;">UniFi 社区 · 本周</td>
+        </tr></table>
+      </td></tr>
+      {% if pains %}
+      <tr><td class="px" style="padding:10px 34px 0;">
+        <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px 18px;">
+          {% for p in pains %}
+          <div style="{% if not loop.first %}margin-top:13px;{% endif %}">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;font-weight:600;color:#34372F;">{{ p.name }}</td>
+              <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:800;color:#191B18;">{{ p.count }}</td>
+            </tr></table>
+            {{ m.bar((p.count / p.of * 100) if p.of else 0, '#B23B4B' if loop.index <= 2 else '#0C6151') }}
+          </div>
+          {% endfor %}
+        </div>
+      </td></tr>
+      {% else %}
+      {{ m.empty_note('高频痛点需更多样本统计，正在积累中') }}
+      {% endif %}
+
+      {# ===== 数据看板 (KPI / 各源贡献 / 热度 Top) ===== #}
+      {{ m.section_header(sn + 1, '数据看板', '信号量 / 各源贡献 / 热度 Top', none, SECTION_TONE.get('industry')) }}
+
+      {# KPI × 4 (2×2) #}
       <tr><td class="px" style="padding:16px 34px 0;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
           <tr>
-            <td class="stack" style="width:33%;padding:6px;"><div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px;text-align:center;"><div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#0C6151;">{{ report.dashboard.signals }}</div><div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:11px;color:#878B81;">本周信号</div></div></td>
-            <td class="stack" style="width:33%;padding:6px;"><div style="background:#F7ECEE;border:1px solid #ECCBD1;border-radius:10px;padding:14px;text-align:center;"><div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#B23B4B;">{{ report.dashboard.threats }}</div><div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:11px;color:#878B81;">威胁</div></div></td>
-            <td class="stack" style="width:33%;padding:6px;"><div style="background:#E9F2EC;border:1px solid #C9E0D1;border-radius:10px;padding:14px;text-align:center;"><div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#2E8259;">{{ report.dashboard.opps }}</div><div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:11px;color:#878B81;">机会</div></div></td>
+            {{ m.kpi_num('本周信号量', db.signals, db.signalsDelta) }}
+            {{ m.kpi_sub('威胁 / 机会', (db.threats|string) ~ ' / ' ~ (db.opps|string), ((db.neutral|string) ~ ' 中性') if db.neutral is not none else none) }}
+          </tr>
+          <tr>
+            {{ m.kpi_num('新竞品动作', db.newCompetitor or 0, db.newCompetitorDelta) }}
+            {{ m.kpi_num('平均热度', db.avgHeat if db.avgHeat is not none else '—', db.avgHeatDelta) }}
           </tr>
         </table>
       </td></tr>
-      {% if report.dashboard.vs %}
-      <tr><td class="px" style="padding:8px 34px 0;">
-        <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px 16px;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;color:#54584F;">
-          <strong style="color:#191B18;">舆情对比</strong> · Omada <strong style="color:#0C6151;">{{ report.dashboard.vs.omada }}</strong> vs UniFi <strong style="color:#B23B4B;">{{ report.dashboard.vs.unifi }}</strong>
+
+      {# 各源贡献 #}
+      {% if sources %}
+      <tr><td class="px" style="padding:16px 34px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;font-weight:800;color:#191B18;">各源贡献</td>
+          <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#878B81;">本周 {{ db.signals }} 条</td>
+        </tr></table>
+      </td></tr>
+      <tr><td class="px" style="padding:10px 34px 0;">
+        <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px 18px;">
+          {% set smax = sources[0].count or 1 %}
+          {% for s in sources %}
+          <div style="{% if not loop.first %}margin-top:13px;{% endif %}">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;font-weight:600;color:#54584F;">{{ s.label }}</td>
+              <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:800;color:#191B18;">{{ s.count }}</td>
+            </tr></table>
+            {{ m.bar(s.count / smax * 100, '#0C6151') }}
+          </div>
+          {% endfor %}
         </div>
       </td></tr>
       {% endif %}
-      {% if report.dashboard.pains %}
-      <tr><td class="px" style="padding:8px 34px 0;">
-        <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px 16px;">
-          <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:12px;font-weight:800;color:#191B18;margin-bottom:8px;">竞品痛点 Top</div>
-          {% for p in report.dashboard.pains %}
-          <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;color:#54584F;padding:3px 0;">· {{ p.name }} <span style="color:#878B81;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;">({{ p.count }})</span></div>
+
+      {# 热度 Top 5 #}
+      {% if topheat %}
+      <tr><td class="px" style="padding:16px 34px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;font-weight:800;color:#191B18;">热度 Top 5</td>
+          <td align="right" style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#878B81;">赞 + 评论加权</td>
+        </tr></table>
+      </td></tr>
+      <tr><td class="px" style="padding:10px 34px 0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;">
+          {% for h in topheat %}
+          {% set it = item_by_id.get(h.id) %}
+          <tr>
+            <td width="34" valign="top" style="padding:{{ '14px' if loop.first else '12px' }} 4px 12px 18px;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:800;color:{{ '#0C6151' if loop.first else '#A8AC9F' }};{% if not loop.first %}border-top:1px solid #EFEEE7;{% endif %}">{{ '%02d'|format(loop.index) }}</td>
+            <td valign="top" style="padding:12px 8px;{% if not loop.first %}border-top:1px solid #EFEEE7;{% endif %}">
+              <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13.5px;font-weight:600;color:#191B18;line-height:1.4;">{{ it.title if it else h.id }}</div>
+              {% if it %}<div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:11px;color:#878B81;margin-top:3px;">{{ it.source_label or it.source_domain }} · {{ it.category | category_label }}</div>{% endif %}
+            </td>
+            <td align="right" valign="top" style="padding:12px 18px 12px 4px;white-space:nowrap;{% if not loop.first %}border-top:1px solid #EFEEE7;{% endif %}font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:800;color:#191B18;">{{ '{:,}'.format(h.v) }}{% if h.fmt == 'views' %} 播放{% endif %}</td>
+          </tr>
           {% endfor %}
-        </div>
+        </table>
       </td></tr>
       {% endif %}
       {% endif %}

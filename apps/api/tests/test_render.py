@@ -56,8 +56,17 @@ def test_weekly_includes_strategy_store_dashboard_and_strength():
     assert "市场策略洞察" in html              # strategy block
     assert "优势确认" in html                  # strength_confirm label (omada_self)
     assert "store.ui.com" in html              # store table content
+    # dashboard is split into two sections, mirroring the web ReportView:
+    # 「口碑与痛点分析」(sentiment panels) + 「数据看板」(KPI / sources / heat).
+    assert "口碑与痛点分析" in html            # sentiment-panels section
+    assert "口碑指数 · 本周" in html           # 口碑 vs panel (current week + 环比)
+    assert "高频痛点 Top 5" in html            # pains panel
     assert "数据看板" in html                  # dashboard section
-    assert "舆情对比" in html                  # dashboard vs widget
+    assert "本周信号量" in html                # KPI: signals
+    assert "平均热度" in html                  # KPI: avgHeat (full KPI set, not just 3 tiles)
+    assert "各源贡献" in html                  # source-contribution bars
+    assert "热度 Top 5" in html                # topHeat ranking
+    assert "舆情对比" not in html              # old compressed vs widget is gone
 
 
 @pytest.mark.parametrize("rtype", ["daily", "weekly"])

@@ -46,6 +46,22 @@ SECTION_TONE: dict[str, str] = {
 # Tier label fallbacks by source_tier.
 TIER_LABEL = {"official": "一手官方", "community": "社区来源"}
 
+# Category -> zh label for the dashboard 热度 Top5 line. Mirrors the web reader
+# (web/src/lib/intel.ts CATEGORY_LABELS) so the email matches the page.
+CATEGORY_LABELS = {
+    "bug": "固件 Bug",
+    "feature_request": "功能请求",
+    "praise": "好评",
+    "pain_point": "痛点",
+    "new_product": "新品",
+    "pricing": "定价",
+    "firmware": "固件",
+    "competitor": "竞品",
+    "sentiment": "舆情",
+    "industry": "行业",
+    "industry_trend": "行业趋势",
+}
+
 _CITE_RE = re.compile(r"\{\{cite:(\d+)\}\}")
 
 # Inline markdown the curator occasionally emits in prose (in practice: **bold**).
@@ -80,6 +96,7 @@ def _env() -> Environment:
     )
     env.filters["cite_links"] = _cite_links_filter
     env.filters["metrics_line"] = _metrics_line
+    env.filters["category_label"] = lambda c: CATEGORY_LABELS.get(c, c)
     env.globals["IMPACT_STYLE"] = IMPACT_STYLE
     env.globals["SECTION_TONE"] = SECTION_TONE
     env.globals["TIER_LABEL"] = TIER_LABEL
@@ -161,8 +178,28 @@ def _ctx(report: Report) -> dict[str, Any]:
         "sections": sections,
         "ref_index": ref_index,
         "references": report.references,
+        "item_by_id": item_by_id,
+        "vs_delta": _vs_delta(report),
         "accent": "#0C6151",
         "site_url": get_settings().site_url,
+    }
+
+
+def _vs_delta(report: Report) -> dict[str, int] | None:
+    """口碑指数 week-over-week delta for the email's compact 口碑 panel.
+
+    Derived from the *real* ``sentimentTrend`` series (latest point minus the
+    prior one) — never fabricated. Returns ``None`` when history is too thin
+    (< 2 points), so the template shows the current-week value with no 环比.
+    """
+    dash = report.dashboard or {}
+    trend = dash.get("sentimentTrend") or []
+    if len(trend) < 2:
+        return None
+    cur, prev = trend[-1], trend[-2]
+    return {
+        "omada": (cur.get("omada") or 0) - (prev.get("omada") or 0),
+        "unifi": (cur.get("unifi") or 0) - (prev.get("unifi") or 0),
     }
 
 

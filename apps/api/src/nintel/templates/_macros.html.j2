@@ -124,6 +124,50 @@
 </td></tr>
 {%- endmacro %}
 
+{# ---- dashboard helpers (weekly) ---- #}
+
+{# Email-safe horizontal bar: a 100%-width track table with a colored fill cell
+   sized by percent. Uses table cells + bgcolor (NOT div width%) so the Outlook /
+   Word engine renders the fill reliably. `pct` is clamped to 0..100. #}
+{% macro bar(pct, color) -%}
+{% set p = pct | round | int %}
+{% set p = 0 if p < 0 else (100 if p > 100 else p) %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ECEAE1;border-radius:99px;margin-top:7px;"><tr>
+  <td width="{{ p }}%" style="height:8px;line-height:8px;font-size:1px;background:{{ color }};border-radius:99px;">&nbsp;</td>
+  {% if p < 100 %}<td style="height:8px;line-height:8px;font-size:1px;">&nbsp;</td>{% endif %}
+</tr></table>
+{%- endmacro %}
+
+{# One KPI tile with a numeric 环比 delta (green ▲ / red ▼ / hidden when none). #}
+{% macro kpi_num(label, value, delta) -%}
+{% set dir = 'flat' if (delta is none or delta == 0) else ('up' if delta > 0 else 'down') %}
+<td class="stack" width="50%" valign="top" style="padding:6px;">
+  <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px 16px;">
+    <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:11px;font-weight:700;color:#878B81;letter-spacing:.3px;">{{ label }}</div>
+    <div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#191B18;line-height:1.1;margin-top:5px;">{{ value }}</div>
+    {% if delta is not none %}<div style="font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;margin-top:4px;color:{{ '#2E8259' if dir=='up' else '#B23B4B' if dir=='down' else '#878B81' }};">{{ '▲ ' if dir=='up' else '▼ ' if dir=='down' else '' }}{{ '+' if delta and delta > 0 else '' }}{{ delta }} 环比</div>{% endif %}
+  </div>
+</td>
+{%- endmacro %}
+
+{# One KPI tile with a plain grey sub-line (e.g. "N 中性"), no arrow. #}
+{% macro kpi_sub(label, value, sub) -%}
+<td class="stack" width="50%" valign="top" style="padding:6px;">
+  <div style="background:#F7F6F1;border:1px solid #EFEEE7;border-radius:10px;padding:14px 16px;">
+    <div style="font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:11px;font-weight:700;color:#878B81;letter-spacing:.3px;">{{ label }}</div>
+    <div style="font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;font-size:26px;font-weight:800;color:#191B18;line-height:1.1;margin-top:5px;">{{ value }}</div>
+    {% if sub %}<div style="font-family:-apple-system,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#878B81;margin-top:4px;">{{ sub }}</div>{% endif %}
+  </div>
+</td>
+{%- endmacro %}
+
+{# Muted empty-state line — matches the web reader's honest "no data yet" note. #}
+{% macro empty_note(text) -%}
+<tr><td class="px" style="padding:12px 34px 0;">
+  <div style="background:#F7F6F1;border:1px dashed #DAD6CA;border-radius:10px;padding:16px;text-align:center;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:13px;color:#A8AC9F;">{{ text }}</div>
+</td></tr>
+{%- endmacro %}
+
 {% macro footer(report, site_url) -%}
 <tr><td class="px" style="padding:30px 34px 30px;">
   <div style="border-top:1px solid #E6E3DA;padding-top:18px;font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;font-size:12px;line-height:1.75;color:#878B81;">
