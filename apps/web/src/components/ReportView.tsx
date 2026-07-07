@@ -3,7 +3,7 @@
    Lead + (weekly) StrategyBlock + section sheets + store table +
    analytics dashboard + References, with a sticky per-report TOC.
    ============================================================ */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from './Icon';
 import { IntelEntry } from './IntelEntry';
 import {
@@ -19,7 +19,6 @@ import { Donut, SourceBars, TrendLine, KpiCard, SOURCE_COLORS } from './Charts';
 import type { ChartStyle } from './Charts';
 import { categoryLabel, sourceDisplayLabel, fmtNum } from '../lib/intel';
 import { jumpTo } from '../lib/jump';
-import { middleEllipsis } from '../lib/text';
 import type {
   Report,
   Section,
@@ -423,7 +422,14 @@ function ReportAside({
   }
   nav.push(['refs', '参考来源', String(report.references.length)]);
 
-  const recent = archive.filter((a) => a.id !== report.report_id).slice(0, 5);
+  const [histFilter, setHistFilter] = useState<'all' | 'daily' | 'weekly'>('all');
+  const recent = archive
+    .filter(
+      (a) =>
+        a.id !== report.report_id &&
+        (histFilter === 'all' || a.type === histFilter),
+    )
+    .slice(0, 5);
   const periodLabel = report.type === 'weekly' ? report.date_range : report.date;
   return (
     <aside className="aside">
@@ -471,19 +477,42 @@ function ReportAside({
         </div>
         <div className="aside-div" />
         <div className="aside-h">近期报告</div>
+        <div className="hist-filter seg">
+          {(
+            [
+              ['all', '全部'],
+              ['daily', '日报'],
+              ['weekly', '周报'],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              className={histFilter === k ? 'on' : ''}
+              onClick={() => setHistFilter(k)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="hist">
-          {recent.map((a) => {
-            const [, mm, dd] = a.date.split('-');
-            return (
-              <div className="hist-row" key={a.id} onClick={() => onOpen(a.id)} title={a.title}>
-                <span className="hd tnum">
-                  {mm}/{dd}
-                </span>
-                <span className="hl">{middleEllipsis(a.title, 20)}</span>
-                <span className={'ht ' + a.type}>{a.type === 'weekly' ? '周' : '日'}</span>
-              </div>
-            );
-          })}
+          {recent.length ? (
+            recent.map((a) => {
+              const [, mm, dd] = a.date.split('-');
+              return (
+                <div className="hist-row" key={a.id} onClick={() => onOpen(a.id)} title={a.title}>
+                  <span className={'ht ' + a.type}>{a.type === 'weekly' ? '周' : '日'}</span>
+                  <span className="hd tnum">
+                    {mm}-{dd}
+                  </span>
+                  <span className="hl">{a.title}</span>
+                </div>
+              );
+            })
+          ) : (
+            <div className="hist-empty">
+              近期暂无{histFilter === 'weekly' ? '周报' : '日报'}
+            </div>
+          )}
         </div>
       </div>
     </aside>
