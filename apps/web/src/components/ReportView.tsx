@@ -19,6 +19,7 @@ import { Donut, SourceBars, TrendLine, KpiCard, SOURCE_COLORS } from './Charts';
 import type { ChartStyle } from './Charts';
 import { categoryLabel, sourceDisplayLabel, fmtNum } from '../lib/intel';
 import { jumpTo } from '../lib/jump';
+import { middleEllipsis } from '../lib/text';
 import type {
   Report,
   Section,
@@ -471,12 +472,18 @@ function ReportAside({
         <div className="aside-div" />
         <div className="aside-h">近期报告</div>
         <div className="hist">
-          {recent.map((a) => (
-            <div className="hist-row" key={a.id} onClick={() => onOpen(a.id)}>
-              <span className="hl">{a.title.length > 15 ? a.title.slice(0, 15) + '…' : a.title}</span>
-              <span className="ht">{a.type === 'weekly' ? '周' : '日'}</span>
-            </div>
-          ))}
+          {recent.map((a) => {
+            const [, mm, dd] = a.date.split('-');
+            return (
+              <div className="hist-row" key={a.id} onClick={() => onOpen(a.id)} title={a.title}>
+                <span className="hd tnum">
+                  {mm}/{dd}
+                </span>
+                <span className="hl">{middleEllipsis(a.title, 20)}</span>
+                <span className={'ht ' + a.type}>{a.type === 'weekly' ? '周' : '日'}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </aside>

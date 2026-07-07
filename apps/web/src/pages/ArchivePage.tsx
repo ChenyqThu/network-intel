@@ -4,7 +4,7 @@
    Click a row -> opens the matching report cadence.
    ============================================================ */
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Icon } from '../components/Icon';
 import { ReportHeader } from '../components/ReportParts';
 import { useAsync } from '../lib/useAsync';
@@ -38,7 +38,6 @@ const THEMES: [ArchiveTheme, string][] = [
 ];
 
 export function ArchivePage() {
-  const navigate = useNavigate();
   const { data, loading } = useAsync(() => fetchArchive(), []);
   const [q, setQ] = useState('');
   const [type, setType] = useState<ReportType | 'all'>('all');
@@ -56,8 +55,6 @@ export function ArchivePage() {
     const [y, m, da] = d.split('-');
     return { top: `${m}/${da}`, yr: y };
   };
-
-  const open = (t: ReportType) => navigate(t === 'weekly' ? '/weekly' : '/daily');
 
   return (
     <div className="wrap">
@@ -104,7 +101,7 @@ export function ArchivePage() {
           list.map((a) => {
             const d = fmtD(a.date);
             return (
-              <div className="arch-row" key={a.id} onClick={() => open(a.type)}>
+              <Link className="arch-row" key={a.id} to={'/r/' + encodeURIComponent(a.id)}>
                 <div className="arch-date tnum">
                   {d.top}
                   <span className="yr">{d.yr}</span>
@@ -136,7 +133,7 @@ export function ArchivePage() {
                     <div className="l">机会</div>
                   </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         {!loading && !list.length && (
